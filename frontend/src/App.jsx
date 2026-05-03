@@ -1038,8 +1038,8 @@ function SplashScreen({ label }) {
         <div className="mx-auto mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 via-cyan-400 to-teal-500 text-lg font-bold text-slate-950 shadow-[0_20px_60px_rgba(6,182,212,0.35)]">
           EC
         </div>
-        <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/70">Standalone Admin</p>
-        <h1 className="mt-3 text-3xl font-semibold text-white">Postmark Launchpad</h1>
+        <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/70">Emailutskick</p>
+        <h1 className="mt-3 text-3xl font-semibold text-white">Laddar kontrollpanelen</h1>
         <p className="mt-4 text-sm text-slate-400">{label}</p>
       </div>
     </div>
@@ -1055,9 +1055,9 @@ function LoginScreen({ form, setForm, loading, error, onSubmit }) {
             EC
           </div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/70">Admin Login</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white">Enter the dashboard</h1>
+          <h1 className="mt-3 text-3xl font-semibold text-white">Logga in</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            Sign in with the configured admin email and password before managing campaigns, sender domains, or recipients.
+            Logga in med din adminanvändare innan du hanterar kampanjer, domäner eller mottagare.
           </p>
         </div>
 
@@ -1073,7 +1073,7 @@ function LoginScreen({ form, setForm, loading, error, onSubmit }) {
             type="password"
             value={form.password}
             onChange={(value) => setForm((current) => ({ ...current, password: value }))}
-            placeholder="Enter password"
+            placeholder="Ange lösenord"
           />
 
           {error ? (
@@ -1087,7 +1087,7 @@ function LoginScreen({ form, setForm, loading, error, onSubmit }) {
             disabled={loading}
             className="w-full rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Signing in..." : "Login"}
+            {loading ? "Loggar in..." : "Login"}
           </button>
         </form>
       </div>
@@ -1146,27 +1146,16 @@ function PageHeader({ activeView, senderProfiles, currentUser, onLogout }) {
         { label: "API", value: "Postmark", detail: "Sparas per domän" },
       ],
     },
-    domains: {
-      eyebrow: "Sender Operations",
-      title: "Domäner & API",
-      description:
-        "Manage verified sender profiles, replace tokens safely, and control which Postmark identity is the default source for new campaigns.",
-      metrics: [
-        { label: "Profiles", value: String(senderProfiles.length).padStart(2, "0"), detail: "Database-backed senders" },
-        { label: "Default", value: senderProfiles.find((profile) => profile.isDefault)?.domain || "None", detail: "Current launch default" },
-        { label: "Streams", value: "Broadcast", detail: "Primary delivery mode" },
-      ],
-    },
   };
 
   const current = copy[activeView] || {
-    eyebrow: "Standalone Admin",
+    eyebrow: "Emailutskick",
     title: navItems.find((item) => item.id === activeView)?.label || "Workspace",
-    description: "This section is ready for the next backend wiring pass.",
+    description: "Den här sidan använder samma appskal och datakällor som resten av adminflödet.",
     metrics: [
-      { label: "Status", value: "Soon", detail: "UI shell is ready" },
-      { label: "Profiles", value: String(senderProfiles.length).padStart(2, "0"), detail: "Available senders" },
-      { label: "Theme", value: "Live", detail: "Shared app shell active" },
+      { label: "Status", value: "Live", detail: "Sidan är aktiv" },
+      { label: "Domäner", value: String(senderProfiles.length).padStart(2, "0"), detail: "Tillgängliga avsändare" },
+      { label: "Tema", value: "Aktivt", detail: "Gemensamt appskal laddat" },
     ],
   };
 
