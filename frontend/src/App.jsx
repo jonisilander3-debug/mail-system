@@ -770,9 +770,13 @@ function App() {
     setCampaignStarting(true);
 
     try {
-      await requestJson(`/api/campaigns/${savedCampaignId}/start`, {
+      const data = await requestJson(`/api/campaigns/${savedCampaignId}/start`, {
         method: "POST",
       });
+
+      if (!data.campaign || data.campaign.status === "draft") {
+        throw new Error("Kampanjen markerades inte som startad i databasen.");
+      }
 
       setCampaignStarted(true);
       setBanner({

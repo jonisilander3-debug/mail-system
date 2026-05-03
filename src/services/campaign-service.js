@@ -23,6 +23,14 @@ async function queueCampaignBatch(campaignId, delaySeconds = 0) {
   await boss.send(QUEUE_NAME, { campaignId }, options);
 }
 
+async function queueCampaignBatchSafely(campaignId, delaySeconds = 0) {
+  try {
+    await queueCampaignBatch(campaignId, delaySeconds);
+  } catch (error) {
+    console.error(`Queue scheduling failed for campaign ${campaignId}`, error);
+  }
+}
+
 async function recalculateCampaignCounts(campaignId) {
   const [campaign, recipients] = await Promise.all([
     prisma.campaign.findUnique({ where: { id: campaignId } }),
@@ -136,17 +144,22 @@ async function startCampaign(campaignId) {
     throw new Error(MISSING_POSTMARK_TOKEN_ERROR);
   }
 
-  await updateCampaignStatus(campaignId, "sending");
-  await queueCampaignBatch(campaignId);
-  scheduleCampaignProcessingFallback(campaignId);
+  const startedCampaign = await updateCampaignStatus(campaignId, "sending");
+  await queueCampaignBatchSafely(campaignId);
+  await processCampaignBatch(campaignId);
+
+  return prisma.campaign.findUnique({
+    where: { id: startedCampaign.id },
+    include: { senderProfile: true },
+  });
 }
 
-function scheduleCampaignProcessingFallback(campaignId) {
+function scheduleCampaignProcessingFallback(campaignId, delaySeconds = 0) {
   setTimeout(() => {
     processCampaignBatch(campaignId).catch((error) => {
       console.error(`Fallback campaign processing failed for campaign ${campaignId}`, error);
     });
-  }, 250);
+  }, Math.max(250, delaySeconds * 1000));
 }
 
 async function processCampaignBatch(campaignId) {
@@ -236,7 +249,8 @@ async function processCampaignBatch(campaignId) {
 
   if (messages.length === 0) {
     await recalculateCampaignCounts(campaignId);
-    await queueCampaignBatch(campaignId, settings.batchDelaySeconds);
+    await queueCampaignBatchSafely(campaignId, settings.batchDelaySeconds);
+    scheduleCampaignProcessingFallback(campaignId, settings.batchDelaySeconds);
     return;
   }
 
@@ -287,7 +301,8 @@ async function processCampaignBatch(campaignId) {
   }
 
   if (updated.status === "sending") {
-    await queueCampaignBatch(campaignId, settings.batchDelaySeconds);
+    await queueCampaignBatchSafely(campaignId, settings.batchDelaySeconds);
+    scheduleCampaignProcessingFallback(campaignId, settings.batchDelaySeconds);
   }
   } finally {
     activeCampaignRuns.delete(campaignId);

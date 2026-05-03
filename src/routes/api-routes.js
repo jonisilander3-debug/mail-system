@@ -245,8 +245,12 @@ router.get("/campaigns/:id", requireJsonAuth, async (req, res) => {
 
 router.post("/campaigns/:id/start", requireJsonAuth, async (req, res) => {
   try {
-    await startCampaign(Number(req.params.id));
-    return res.json({ ok: true });
+    const campaign = await startCampaign(Number(req.params.id));
+    if (!campaign || campaign.status === "draft") {
+      return res.status(500).json({ error: "Campaign start did not persist. Try again." });
+    }
+
+    return res.json({ ok: true, campaign: serializeCampaign(campaign) });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
