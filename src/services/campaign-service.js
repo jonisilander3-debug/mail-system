@@ -391,11 +391,19 @@ async function getCampaignDiagnostics(campaignId) {
   let health = "info";
   let summary = "Kampanjen har inte analyserats an.";
   let recommendation = "Uppdatera sidan och kontrollera senaste status igen.";
+  let fixAvailable = false;
+  let fixLabel = "Fix";
+  let fixAction = null;
 
   if (campaign.status === "draft") {
     health = "warning";
     summary = "Kampanjen ligger fortfarande som utkast och har inte borjat skicka.";
     recommendation = "Forsok starta kampanjen igen. Om det hander flera ganger, kontrollera kampanjstatus direkt har igen.";
+    if (campaign.validRecipients > 0 && campaign.senderProfile?.postmarkToken) {
+      fixAvailable = true;
+      fixAction = "start_campaign";
+      fixLabel = "Fix: Starta kampanj";
+    }
   } else if (campaign.status === "sending" && attemptCount === 0 && pendingCount > 0) {
     health = startedAgeSeconds !== null && startedAgeSeconds > 60 ? "error" : "warning";
     summary =
@@ -404,10 +412,16 @@ async function getCampaignDiagnostics(campaignId) {
         : "Kampanjen har startat men forsta batchen verkar inte vara skickad an.";
     recommendation =
       "Vanta en kort stund och kontrollera igen. Om den fortsatter sta still utan skickforsok behover kampanjen startas om eller ko-logiken ses over.";
+    fixAvailable = true;
+    fixAction = "resume_processing";
+    fixLabel = "Fix: Forsok skicka igen";
   } else if (campaign.status === "sending" && attemptCount > 0 && pendingCount > 0) {
     health = "ok";
     summary = "Utskicket pagar och fler mottagare ligger fortfarande i ko.";
     recommendation = "Ingen atgard behovs just nu. Uppdatera igen om en liten stund for att se fler skickforsok.";
+    fixAvailable = true;
+    fixAction = "resume_processing";
+    fixLabel = "Fix: Kicka batchen";
   } else if (campaign.status === "completed" && sentCount > 0 && failedCount === 0) {
     health = "ok";
     summary = `Kampanjen ar klar. ${sentCount} av ${campaign.validRecipients} mail skickades.`;
@@ -455,6 +469,37 @@ async function getCampaignDiagnostics(campaignId) {
     topErrorMessage: topErrorMessage || null,
     status: campaign.status,
     lastAttemptAt: campaign.sendAttempts[0]?.attemptedAt || null,
+    fixAvailable,
+    fixLabel,
+    fixAction,
+  };
+}
+
+async function fixCampaign(campaignId) {
+  const diagnostics = await getCampaignDiagnostics(campaignId);
+
+  if (!diagnostics.fixAvailable || !diagnostics.fixAction) {
+    return {
+      fixed: false,
+      message: "Det finns ingen saker automatisk fix for den har kampanjen.",
+      diagnostics,
+    };
+  }
+
+  if (diagnostics.fixAction === "start_campaign") {
+    await startCampaign(campaignId);
+  }
+
+  if (diagnostics.fixAction === "resume_processing") {
+    await queueCampaignBatchSafely(campaignId);
+    await processCampaignBatch(campaignId);
+  }
+
+  const updatedDiagnostics = await getCampaignDiagnostics(campaignId);
+  return {
+    fixed: true,
+    message: "Fix-kommandot har genomforts. Kontrollera uppdaterad status nedan.",
+    diagnostics: updatedDiagnostics,
   };
 }
 
@@ -465,5 +510,6 @@ module.exports = {
   processCampaignBatch,
   exportCampaignResults,
   getCampaignDiagnostics,
+  fixCampaign,
   updateCampaignStatus,
 };

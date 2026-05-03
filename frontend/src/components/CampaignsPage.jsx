@@ -5,7 +5,9 @@ export default function CampaignsPage({
   highlightedCampaignId,
   diagnosticsById,
   diagnosticsLoadingId,
+  fixLoadingId,
   onInspectCampaign,
+  onFixCampaign,
   onRefresh,
 }) {
   const draftCount = campaigns.filter((campaign) => campaign.status === "draft").length;
@@ -43,7 +45,7 @@ export default function CampaignsPage({
       <Panel
         eyebrow="Senaste"
         title="Senaste kampanjer"
-        description="Tryck pa Kontrollera status om du snabbt vill se om en kampanj har startat, pagar eller verkar ha fastnat."
+        description="Har visas kampanjer for de domaner som anvandaren har tillgang till. Tryck pa Kontrollera status for att se om en kampanj pagar, ar klar eller verkar ha fastnat."
       >
         <div className="space-y-4">
           {!loading && campaigns.length === 0 ? (
@@ -56,6 +58,7 @@ export default function CampaignsPage({
             const isHighlighted = highlightedCampaignId === campaign.id;
             const diagnostics = diagnosticsById[campaign.id];
             const isInspecting = diagnosticsLoadingId === campaign.id;
+            const isFixing = fixLoadingId === campaign.id;
 
             return (
               <div
@@ -99,6 +102,16 @@ export default function CampaignsPage({
                   >
                     {isInspecting ? "Kontrollerar..." : "Kontrollera status"}
                   </button>
+                  {diagnostics?.fixAvailable ? (
+                    <button
+                      type="button"
+                      onClick={() => onFixCampaign(campaign.id)}
+                      disabled={isFixing}
+                      className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isFixing ? "Fixar..." : diagnostics.fixLabel || "Fix"}
+                    </button>
+                  ) : null}
                 </div>
 
                 {diagnostics ? (

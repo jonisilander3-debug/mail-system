@@ -105,6 +105,7 @@ function App() {
   const [highlightedCampaignId, setHighlightedCampaignId] = useState(null);
   const [campaignDiagnostics, setCampaignDiagnostics] = useState({});
   const [campaignDiagnosticsLoadingId, setCampaignDiagnosticsLoadingId] = useState(null);
+  const [campaignFixLoadingId, setCampaignFixLoadingId] = useState(null);
   const [testEmail, setTestEmail] = useState("");
   const [testEmailLoading, setTestEmailLoading] = useState(false);
   const [testEmailSent, setTestEmailSent] = useState(false);
@@ -336,6 +337,7 @@ function App() {
       setCampaignsError("");
       setCampaignDiagnostics({});
       setCampaignDiagnosticsLoadingId(null);
+      setCampaignFixLoadingId(null);
       setSenderProfiles([]);
       setSelectedProfileId(null);
       setRecipientPreview(createEmptyRecipientPreview());
@@ -585,6 +587,7 @@ function App() {
       setActiveView("create-campaign");
       setCampaignDiagnostics({});
       setCampaignDiagnosticsLoadingId(null);
+      setCampaignFixLoadingId(null);
       setRecipientPreview(createEmptyRecipientPreview());
       setUploadedFileName("");
       setUploadError("");
@@ -718,6 +721,7 @@ function App() {
     setHighlightedCampaignId(null);
     setCampaignDiagnostics({});
     setCampaignDiagnosticsLoadingId(null);
+    setCampaignFixLoadingId(null);
     setBanner({
       type: "success",
       message: "Kampanjen ar igang. Du kan nu skapa ett nytt utskick.",
@@ -935,6 +939,36 @@ function App() {
       }));
     } finally {
       setCampaignDiagnosticsLoadingId(null);
+    }
+  }
+
+  async function handleFixCampaign(campaignId) {
+    setCampaignFixLoadingId(campaignId);
+
+    try {
+      const data = await requestJson(`/api/campaigns/${campaignId}/fix`, {
+        method: "POST",
+      });
+
+      if (data.diagnostics) {
+        setCampaignDiagnostics((current) => ({
+          ...current,
+          [campaignId]: data.diagnostics,
+        }));
+      }
+
+      await loadCampaigns();
+      setBanner({
+        type: data.fixed ? "success" : "error",
+        message: data.message || (data.fixed ? "Fix-korning genomfordes." : "Ingen automatisk fix kunde koras."),
+      });
+    } catch (error) {
+      setBanner({
+        type: "error",
+        message: error.message || "Kunde inte kora fix for kampanjen.",
+      });
+    } finally {
+      setCampaignFixLoadingId(null);
     }
   }
 
@@ -1233,7 +1267,9 @@ function App() {
               highlightedCampaignId={highlightedCampaignId}
               diagnosticsById={campaignDiagnostics}
               diagnosticsLoadingId={campaignDiagnosticsLoadingId}
+              fixLoadingId={campaignFixLoadingId}
               onInspectCampaign={inspectCampaign}
+              onFixCampaign={handleFixCampaign}
               onRefresh={loadCampaigns}
             />
           ) : null}
