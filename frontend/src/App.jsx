@@ -103,6 +103,8 @@ function App() {
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [campaignsError, setCampaignsError] = useState("");
   const [highlightedCampaignId, setHighlightedCampaignId] = useState(null);
+  const [campaignDiagnostics, setCampaignDiagnostics] = useState({});
+  const [campaignDiagnosticsLoadingId, setCampaignDiagnosticsLoadingId] = useState(null);
   const [testEmail, setTestEmail] = useState("");
   const [testEmailLoading, setTestEmailLoading] = useState(false);
   const [testEmailSent, setTestEmailSent] = useState(false);
@@ -332,6 +334,8 @@ function App() {
       setProfilesError("");
       setCampaigns([]);
       setCampaignsError("");
+      setCampaignDiagnostics({});
+      setCampaignDiagnosticsLoadingId(null);
       setSenderProfiles([]);
       setSelectedProfileId(null);
       setRecipientPreview(createEmptyRecipientPreview());
@@ -579,6 +583,8 @@ function App() {
       setBanner(null);
       setModalState((current) => ({ ...current, open: false }));
       setActiveView("create-campaign");
+      setCampaignDiagnostics({});
+      setCampaignDiagnosticsLoadingId(null);
       setRecipientPreview(createEmptyRecipientPreview());
       setUploadedFileName("");
       setUploadError("");
@@ -710,6 +716,8 @@ function App() {
     setUploadError("");
     setUploadedFileName("");
     setHighlightedCampaignId(null);
+    setCampaignDiagnostics({});
+    setCampaignDiagnosticsLoadingId(null);
     setBanner({
       type: "success",
       message: "Kampanjen ar igang. Du kan nu skapa ett nytt utskick.",
@@ -883,6 +891,7 @@ function App() {
       setHighlightedCampaignId(savedCampaignId);
       setActiveView("campaigns");
       await loadCampaigns();
+      await inspectCampaign(savedCampaignId);
       setBanner({
         type: "success",
         message: "Kampanjen har startats och lagts i ko for utskick.",
@@ -894,6 +903,38 @@ function App() {
       });
     } finally {
       setCampaignStarting(false);
+    }
+  }
+
+  async function inspectCampaign(campaignId) {
+    setCampaignDiagnosticsLoadingId(campaignId);
+
+    try {
+      const data = await requestJson(`/api/campaigns/${campaignId}/diagnostics`);
+      setCampaignDiagnostics((current) => ({
+        ...current,
+        [campaignId]: data.diagnostics,
+      }));
+    } catch (error) {
+      setCampaignDiagnostics((current) => ({
+        ...current,
+        [campaignId]: {
+          health: "error",
+          summary: error.message || "Kunde inte kontrollera kampanjen.",
+          recommendation: "Forsok igen om en liten stund.",
+          counts: {
+            pending: 0,
+            sent: 0,
+            failed: 0,
+            skipped: 0,
+            attempts: 0,
+            unsubscribedSkips: 0,
+          },
+          status: "unknown",
+        },
+      }));
+    } finally {
+      setCampaignDiagnosticsLoadingId(null);
     }
   }
 
@@ -1190,6 +1231,9 @@ function App() {
               loading={campaignsLoading}
               error={campaignsError}
               highlightedCampaignId={highlightedCampaignId}
+              diagnosticsById={campaignDiagnostics}
+              diagnosticsLoadingId={campaignDiagnosticsLoadingId}
+              onInspectCampaign={inspectCampaign}
               onRefresh={loadCampaigns}
             />
           ) : null}

@@ -333,11 +333,137 @@ async function exportCampaignResults(campaignId) {
   return parser.parse(recipients);
 }
 
+function getTopErrorMessage(recipients) {
+  const counts = new Map();
+
+  for (const recipient of recipients) {
+    if (!recipient.errorMessage) {
+      continue;
+    }
+
+    counts.set(recipient.errorMessage, (counts.get(recipient.errorMessage) || 0) + 1);
+  }
+
+  let winner = "";
+  let winnerCount = 0;
+  for (const [message, count] of counts.entries()) {
+    if (count > winnerCount) {
+      winner = message;
+      winnerCount = count;
+    }
+  }
+
+  return winner;
+}
+
+async function getCampaignDiagnostics(campaignId) {
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    include: {
+      senderProfile: true,
+      recipients: {
+        orderBy: { id: "asc" },
+      },
+      sendAttempts: {
+        orderBy: { attemptedAt: "desc" },
+        take: 20,
+      },
+    },
+  });
+
+  if (!campaign) {
+    throw new Error("Campaign not found.");
+  }
+
+  const pendingCount = campaign.recipients.filter((recipient) => recipient.status === "pending").length;
+  const sentCount = campaign.recipients.filter((recipient) => recipient.status === "sent").length;
+  const failedCount = campaign.recipients.filter((recipient) => recipient.status === "failed").length;
+  const skippedCount = campaign.recipients.filter((recipient) => recipient.status === "skipped").length;
+  const unsubscribedSkips = campaign.recipients.filter(
+    (recipient) => recipient.errorMessage === "Recipient unsubscribed",
+  ).length;
+  const attemptCount = campaign.sendAttempts.length;
+  const topErrorMessage = getTopErrorMessage(campaign.recipients);
+  const startedAgeSeconds = campaign.startedAt
+    ? Math.max(0, Math.round((Date.now() - new Date(campaign.startedAt).getTime()) / 1000))
+    : null;
+
+  let health = "info";
+  let summary = "Kampanjen har inte analyserats an.";
+  let recommendation = "Uppdatera sidan och kontrollera senaste status igen.";
+
+  if (campaign.status === "draft") {
+    health = "warning";
+    summary = "Kampanjen ligger fortfarande som utkast och har inte borjat skicka.";
+    recommendation = "Forsok starta kampanjen igen. Om det hander flera ganger, kontrollera kampanjstatus direkt har igen.";
+  } else if (campaign.status === "sending" && attemptCount === 0 && pendingCount > 0) {
+    health = startedAgeSeconds !== null && startedAgeSeconds > 60 ? "error" : "warning";
+    summary =
+      health === "error"
+        ? "Kampanjen ser ut att ha fastnat innan forsta batchen skickades."
+        : "Kampanjen har startat men forsta batchen verkar inte vara skickad an.";
+    recommendation =
+      "Vanta en kort stund och kontrollera igen. Om den fortsatter sta still utan skickforsok behover kampanjen startas om eller ko-logiken ses over.";
+  } else if (campaign.status === "sending" && attemptCount > 0 && pendingCount > 0) {
+    health = "ok";
+    summary = "Utskicket pagar och fler mottagare ligger fortfarande i ko.";
+    recommendation = "Ingen atgard behovs just nu. Uppdatera igen om en liten stund for att se fler skickforsok.";
+  } else if (campaign.status === "completed" && sentCount > 0 && failedCount === 0) {
+    health = "ok";
+    summary = `Kampanjen ar klar. ${sentCount} av ${campaign.validRecipients} mail skickades.`;
+    recommendation = "Ingen atgard behovs. Kontrollera Kampanjer for slutstatus.";
+  } else if (failedCount > 0 && topErrorMessage.includes("Sender Signature")) {
+    health = "error";
+    summary = "Postmark blockerar utskicket eftersom From-adressen inte ar verifierad.";
+    recommendation =
+      "Verifiera From-adressen eller hela domanen i Postmark for den valda API-nyckeln och forsok sedan igen.";
+  } else if (unsubscribedSkips > 0) {
+    health = skippedCount === campaign.validRecipients ? "warning" : "info";
+    summary =
+      skippedCount === campaign.validRecipients
+        ? "Alla mottagare stoppades eftersom de ar markerade som unsubscribed."
+        : `${unsubscribedSkips} mottagare hoppades over eftersom de ar unsubscribed.`;
+    recommendation = "Kontrollera unsubscribe-listan under Installningar om nagon adress stoppats felaktigt.";
+  } else if (failedCount > 0) {
+    health = "error";
+    summary = `${failedCount} mottagare misslyckades att skickas.`;
+    recommendation = topErrorMessage || "Kontrollera senaste felmeddelande och forsok igen.";
+  } else if (campaign.status === "completed" && skippedCount > 0) {
+    health = "warning";
+    summary = "Kampanjen ar klar men vissa mottagare hoppades over.";
+    recommendation = "Kontrollera unsubscribe-listan och mottagarnas status for att se varfor de stoppades.";
+  } else if (campaign.status === "failed") {
+    health = "error";
+    summary = "Kampanjen markerades som misslyckad.";
+    recommendation = topErrorMessage || "Kontrollera felmeddelanden och gor ett nytt forsok nar problemet ar lost.";
+  }
+
+  return {
+    campaignId: campaign.id,
+    health,
+    summary,
+    recommendation,
+    counts: {
+      pending: pendingCount,
+      sent: sentCount,
+      failed: failedCount,
+      skipped: skippedCount,
+      attempts: attemptCount,
+      unsubscribedSkips,
+    },
+    startedAgeSeconds,
+    topErrorMessage: topErrorMessage || null,
+    status: campaign.status,
+    lastAttemptAt: campaign.sendAttempts[0]?.attemptedAt || null,
+  };
+}
+
 module.exports = {
   QUEUE_NAME,
   sendTestEmail,
   startCampaign,
   processCampaignBatch,
   exportCampaignResults,
+  getCampaignDiagnostics,
   updateCampaignStatus,
 };

@@ -3,6 +3,9 @@ export default function CampaignsPage({
   loading,
   error,
   highlightedCampaignId,
+  diagnosticsById,
+  diagnosticsLoadingId,
+  onInspectCampaign,
   onRefresh,
 }) {
   const draftCount = campaigns.filter((campaign) => campaign.status === "draft").length;
@@ -15,7 +18,7 @@ export default function CampaignsPage({
       <Panel
         eyebrow="Kampanjer"
         title="Utskicksstatus"
-        description="Har ser du snabbt om ett utskick har startat, hur manga mail som skickats och om nagot har fastnat."
+        description="Har ser du snabbt om ett utskick har startat, hur manga mail som skickats och om nagot verkar ha fastnat."
         action={(
           <button
             type="button"
@@ -27,7 +30,7 @@ export default function CampaignsPage({
         )}
       >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Pågående" value={String(sendingCount)} tone="cyan" />
+          <StatCard label="Pagaende" value={String(sendingCount)} tone="cyan" />
           <StatCard label="Utkast" value={String(draftCount)} tone="slate" />
           <StatCard label="Klara" value={String(completedCount)} tone="emerald" />
           <StatCard label="Fel" value={String(failedCount)} tone="rose" />
@@ -40,17 +43,20 @@ export default function CampaignsPage({
       <Panel
         eyebrow="Senaste"
         title="Senaste kampanjer"
-        description="Den senast startade kampanjen markeras sa att du direkt ser om utskicket har borjat ga ut."
+        description="Tryck pa Kontrollera status om du snabbt vill se om en kampanj har startat, pagar eller verkar ha fastnat."
       >
         <div className="space-y-4">
           {!loading && campaigns.length === 0 ? (
             <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-400">
-              Inga kampanjer finns ännu.
+              Inga kampanjer finns an.
             </div>
           ) : null}
 
           {campaigns.map((campaign) => {
             const isHighlighted = highlightedCampaignId === campaign.id;
+            const diagnostics = diagnosticsById[campaign.id];
+            const isInspecting = diagnosticsLoadingId === campaign.id;
+
             return (
               <div
                 key={campaign.id}
@@ -83,6 +89,21 @@ export default function CampaignsPage({
                   <DetailRow label="Misslyckade" value={String(campaign.failedCount || 0)} />
                   <DetailRow label="Testmail" value={campaign.testSentAt ? "Ja" : "Nej"} />
                 </div>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onInspectCampaign(campaign.id)}
+                    disabled={isInspecting}
+                    className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isInspecting ? "Kontrollerar..." : "Kontrollera status"}
+                  </button>
+                </div>
+
+                {diagnostics ? (
+                  <DiagnosticsCard diagnostics={diagnostics} />
+                ) : null}
               </div>
             );
           })}
@@ -160,4 +181,50 @@ function StatusMessage({ tone, children }) {
       : "border-cyan-300/20 bg-cyan-400/[0.06] text-cyan-100";
 
   return <div className={`rounded-[24px] border p-5 text-sm ${toneClass}`}>{children}</div>;
+}
+
+function DiagnosticsCard({ diagnostics }) {
+  const toneClass = {
+    ok: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+    info: "border-cyan-300/20 bg-cyan-400/[0.06] text-cyan-100",
+    warning: "border-amber-300/20 bg-amber-400/[0.08] text-amber-100",
+    error: "border-rose-400/20 bg-rose-400/10 text-rose-100",
+  }[diagnostics.health] || "border-cyan-300/20 bg-cyan-400/[0.06] text-cyan-100";
+
+  return (
+    <div className={`mt-5 rounded-[24px] border p-5 ${toneClass}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold">Statuskontroll</p>
+        <span className="rounded-full bg-slate-950/30 px-3 py-1 text-xs uppercase tracking-[0.2em]">
+          {diagnostics.health}
+        </span>
+      </div>
+
+      <p className="mt-3 text-sm leading-6">{diagnostics.summary}</p>
+      <p className="mt-2 text-sm leading-6 text-current/85">{diagnostics.recommendation}</p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <MiniMetric label="Pending" value={String(diagnostics.counts?.pending || 0)} />
+        <MiniMetric label="Sent" value={String(diagnostics.counts?.sent || 0)} />
+        <MiniMetric label="Failed" value={String(diagnostics.counts?.failed || 0)} />
+        <MiniMetric label="Skipped" value={String(diagnostics.counts?.skipped || 0)} />
+        <MiniMetric label="Forsok" value={String(diagnostics.counts?.attempts || 0)} />
+      </div>
+
+      {diagnostics.topErrorMessage ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/25 p-4 text-sm leading-6 text-white/90">
+          Senaste fel: {diagnostics.topErrorMessage}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/25 px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.24em] text-current/70">{label}</p>
+      <p className="mt-2 text-base font-semibold text-white">{value}</p>
+    </div>
+  );
 }

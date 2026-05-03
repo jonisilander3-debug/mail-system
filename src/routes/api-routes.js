@@ -11,6 +11,7 @@ const {
   sendTestEmail,
   startCampaign,
   updateCampaignStatus,
+  getCampaignDiagnostics,
   QUEUE_NAME,
 } = require("../services/campaign-service");
 const { generateEmailDraft } = require("../services/ai-service");
@@ -241,6 +242,32 @@ router.get("/campaigns/:id", requireJsonAuth, async (req, res) => {
   }
 
   return res.json({ campaign: serializeCampaign(campaign), recipients: campaign.recipients });
+});
+
+router.get("/campaigns/:id/diagnostics", requireJsonAuth, async (req, res) => {
+  const campaignId = Number(req.params.id);
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { id: true, senderProfileId: true },
+  });
+
+  if (!campaign) {
+    return res.status(404).json({ error: "Campaign not found." });
+  }
+
+  if (Number(req.session?.user?.id) !== 0) {
+    const allowedProfileIds = await getAccessibleSenderProfileIds(req);
+    if (!allowedProfileIds.includes(campaign.senderProfileId)) {
+      return res.status(403).json({ error: "You do not have access to that campaign." });
+    }
+  }
+
+  try {
+    const diagnostics = await getCampaignDiagnostics(campaignId);
+    return res.json({ diagnostics });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || "Could not inspect campaign." });
+  }
 });
 
 router.post("/campaigns/:id/start", requireJsonAuth, async (req, res) => {
