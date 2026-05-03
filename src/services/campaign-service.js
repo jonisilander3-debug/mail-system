@@ -206,6 +206,9 @@ async function processCampaignBatch(campaignId) {
   const unsubscribed = await prisma.unsubscribe.findMany({
     where: {
       email: { in: recipients.map((item) => item.email) },
+      unsubscribedAt: {
+        not: null,
+      },
     },
   });
   const unsubscribedSet = new Set(unsubscribed.map((item) => item.email));

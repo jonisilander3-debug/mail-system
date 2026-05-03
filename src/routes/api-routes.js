@@ -329,7 +329,13 @@ router.post("/upload", requireJsonAuth, upload.single("file"), async (req, res) 
     return res.status(400).json({ error: "Campaign and upload file are required." });
   }
 
-  const unsubscribes = await prisma.unsubscribe.findMany();
+  const unsubscribes = await prisma.unsubscribe.findMany({
+    where: {
+      unsubscribedAt: {
+        not: null,
+      },
+    },
+  });
   const unsubscribedSet = new Set(unsubscribes.map((item) => item.email));
   const parsed = parseRecipientCsv(req.file.buffer, unsubscribedSet);
 
@@ -445,6 +451,42 @@ router.get("/settings/domains", requireJsonAuth, async (req, res) => {
 router.get("/settings/app", requireJsonAuth, async (req, res) => {
   const settings = await getAdminSettings();
   return res.json({ settings });
+});
+
+router.get("/settings/unsubscribes", requireJsonAuth, async (req, res) => {
+  const unsubscribes = await prisma.unsubscribe.findMany({
+    where: {
+      unsubscribedAt: {
+        not: null,
+      },
+    },
+    orderBy: { unsubscribedAt: "desc" },
+    take: 500,
+  });
+
+  return res.json({
+    unsubscribes: unsubscribes.map((entry) => ({
+      id: entry.id,
+      email: entry.email,
+      unsubscribedAt: entry.unsubscribedAt,
+    })),
+  });
+});
+
+router.delete("/settings/unsubscribes/:id", requireJsonAuth, async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: "Invalid unsubscribe entry." });
+  }
+
+  const existing = await prisma.unsubscribe.findUnique({ where: { id } });
+  if (!existing) {
+    return res.status(404).json({ error: "Unsubscribe entry not found." });
+  }
+
+  await prisma.unsubscribe.delete({ where: { id } });
+  return res.json({ ok: true });
 });
 
 router.put("/settings/app", requireJsonAuth, async (req, res) => {

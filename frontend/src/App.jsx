@@ -124,6 +124,9 @@ function App() {
   const [aiSettings, setAiSettings] = useState(emptyAiSettingsForm);
   const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
   const [aiSettingsError, setAiSettingsError] = useState("");
+  const [unsubscribes, setUnsubscribes] = useState([]);
+  const [unsubscribesLoading, setUnsubscribesLoading] = useState(false);
+  const [unsubscribesError, setUnsubscribesError] = useState("");
   const [userModalState, setUserModalState] = useState({
     open: false,
     mode: "create",
@@ -257,6 +260,21 @@ function App() {
     }
   }
 
+  async function loadUnsubscribes() {
+    setUnsubscribesLoading(true);
+    setUnsubscribesError("");
+
+    try {
+      const data = await requestJson("/api/settings/unsubscribes");
+      setUnsubscribes(Array.isArray(data.unsubscribes) ? data.unsubscribes : []);
+    } catch (error) {
+      setUnsubscribes([]);
+      setUnsubscribesError(error.message || "Could not load unsubscribe list.");
+    } finally {
+      setUnsubscribesLoading(false);
+    }
+  }
+
   async function loadRecipientsByDomain(nextSenderProfileId) {
     const targetId = nextSenderProfileId || recipientDomainId || selectedProfileId || null;
     setRecipientExplorerLoading(true);
@@ -284,6 +302,7 @@ function App() {
       loadProfiles();
       loadUsers();
       loadAiSettings();
+      loadUnsubscribes();
       return;
     }
 
@@ -300,6 +319,8 @@ function App() {
       setUsersError("");
       setAiSettings({ ...emptyAiSettingsForm });
       setAiSettingsError("");
+      setUnsubscribes([]);
+      setUnsubscribesError("");
       setRecipientRows([]);
       setRecipientExplorerError("");
       setTestEmail("");
@@ -466,6 +487,28 @@ function App() {
         saving: false,
       }));
       setAiSettingsError(error.message || "Could not save AI settings.");
+    }
+  }
+
+  async function handleRemoveUnsubscribe(entry) {
+    if (!window.confirm(`Ta bort ${entry.email} fran unsubscribe-listan?`)) {
+      return;
+    }
+
+    try {
+      await requestJson(`/api/settings/unsubscribes/${entry.id}`, {
+        method: "DELETE",
+      });
+      await loadUnsubscribes();
+      setBanner({
+        type: "success",
+        message: `${entry.email} togs bort fran unsubscribe-listan.`,
+      });
+    } catch (error) {
+      setBanner({
+        type: "error",
+        message: error.message || "Kunde inte ta bort unsubscribe-posten.",
+      });
     }
   }
 
@@ -1142,6 +1185,11 @@ function App() {
               aiSettingsError={aiSettingsError}
               onAiSettingsChange={updateAiSettingsField}
               onAiSettingsSave={handleAiSettingsSave}
+              unsubscribes={unsubscribes}
+              unsubscribesLoading={unsubscribesLoading}
+              unsubscribesError={unsubscribesError}
+              onRefreshUnsubscribes={loadUnsubscribes}
+              onRemoveUnsubscribe={handleRemoveUnsubscribe}
             />
           ) : null}
 

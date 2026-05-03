@@ -20,6 +20,11 @@ export default function SettingsPage({
   aiSettingsError,
   onAiSettingsChange,
   onAiSettingsSave,
+  unsubscribes,
+  unsubscribesLoading,
+  unsubscribesError,
+  onRefreshUnsubscribes,
+  onRemoveUnsubscribe,
 }) {
   return (
     <section className="mx-auto w-full max-w-6xl space-y-6">
@@ -48,6 +53,7 @@ export default function SettingsPage({
             onClick={() => {
               onRefreshProfiles();
               onRefreshUsers();
+              onRefreshUnsubscribes();
             }}
             className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-medium text-slate-200"
           >
@@ -279,8 +285,79 @@ export default function SettingsPage({
           </table>
         </div>
       </Panel>
+
+      <Panel
+        eyebrow="Unsubscribe"
+        title="Avregistrerade mottagare"
+        description="Har ser du vilka adresser som har klickat pa unsubscribe. Du kan ta bort en adress fran listan om den blivit felaktigt avregistrerad."
+      >
+        {unsubscribesLoading ? <StatusMessage tone="info">Laddar unsubscribe-listan...</StatusMessage> : null}
+        {unsubscribesError ? <StatusMessage tone="error">{unsubscribesError}</StatusMessage> : null}
+
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onRefreshUnsubscribes}
+            className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200"
+          >
+            Uppdatera lista
+          </button>
+        </div>
+
+        <div className="overflow-hidden rounded-[22px] border border-white/8">
+          <table className="min-w-full divide-y divide-white/8 text-left text-sm">
+            <thead className="bg-white/[0.03] text-slate-400">
+              <tr>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Avregistrerad</th>
+                <th className="px-4 py-3">Atgard</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/6">
+              {!unsubscribesLoading && unsubscribes.length === 0 ? (
+                <tr className="bg-slate-950/40">
+                  <td className="px-4 py-6 text-center text-sm text-slate-400" colSpan={3}>
+                    Inga avregistrerade mottagare finns just nu.
+                  </td>
+                </tr>
+              ) : null}
+              {unsubscribes.map((entry) => (
+                <tr key={entry.id} className="bg-slate-950/40">
+                  <td className="px-4 py-3 text-slate-100">{entry.email}</td>
+                  <td className="px-4 py-3 text-slate-300">{formatDate(entry.unsubscribedAt)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => onRemoveUnsubscribe(entry)}
+                      className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-200"
+                    >
+                      Ta bort
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </section>
   );
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function Panel({ eyebrow, title, description, children }) {

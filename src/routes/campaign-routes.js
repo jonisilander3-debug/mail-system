@@ -138,7 +138,13 @@ router.post("/campaigns/:id/upload", requireAuth, upload.single("csvFile"), asyn
     return res.redirect(`/campaigns/${campaignId}`);
   }
 
-  const unsubscribes = await prisma.unsubscribe.findMany();
+  const unsubscribes = await prisma.unsubscribe.findMany({
+    where: {
+      unsubscribedAt: {
+        not: null,
+      },
+    },
+  });
   const unsubscribedSet = new Set(unsubscribes.map((item) => item.email));
   const parsed = parseRecipientCsv(req.file.buffer, unsubscribedSet);
 

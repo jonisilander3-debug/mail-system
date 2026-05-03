@@ -131,7 +131,7 @@ model Unsubscribe {
   id             Int      @id @default(autoincrement())
   email          String   @unique
   token          String   @unique
-  unsubscribedAt DateTime @default(now())
+  unsubscribedAt DateTime?
 }
 
 model SendAttempt {
