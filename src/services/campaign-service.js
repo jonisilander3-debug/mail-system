@@ -128,10 +128,6 @@ async function startCampaign(campaignId) {
     throw new Error("Campaign not found.");
   }
 
-  if (!campaign.testSentAt) {
-    throw new Error("A test email must be sent before starting the campaign.");
-  }
-
   if (campaign.validRecipients < 1) {
     throw new Error("Upload at least one valid recipient before starting.");
   }

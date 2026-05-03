@@ -47,7 +47,7 @@ export default function CampaignWizard({
   const hasValidRecipients = (recipientPreview.valid || 0) > 0;
   const hasSavedDraft = Boolean(savedCampaignId);
   const canSendTest = Boolean(hasSavedDraft && selectedProfile?.maskedToken && testEmail.trim());
-  const canLaunch = Boolean(hasSavedDraft && testEmailSent && hasValidRecipients && selectedProfile?.maskedToken);
+  const canLaunch = Boolean(hasSavedDraft && hasValidRecipients && selectedProfile?.maskedToken);
 
   const completion = {
     1: hasStepOneData,
@@ -451,7 +451,7 @@ export default function CampaignWizard({
                   </div>
                   {!testEmailSent ? (
                     <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.06] p-4 text-sm text-cyan-100">
-                      Du kan ga vidare till sista steget nar utkastet ar sparat. Själva kampanjstarten kraver fortfarande att ett testmail har skickats.
+                      Testmail ar frivilligt. Du kan starta kampanjen direkt i sista steget nar utkastet ar sparat.
                     </div>
                   ) : null}
                 </div>
@@ -486,7 +486,7 @@ export default function CampaignWizard({
                   <p className="text-sm font-medium text-amber-100">Varning</p>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
                     Du ar pa vag att skicka denna kampanj till {recipientPreview.valid || 0} giltiga mottagare.
-                    Kontrollera att amnesrad, doman och testmail ar godkanda innan du startar.
+                    Kontrollera att amnesrad och doman ar korrekta innan du startar.
                   </p>
                 </div>
 
