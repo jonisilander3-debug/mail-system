@@ -1,0 +1,22 @@
+<% if (currentUser) { %>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">PM</div>
+      <div>
+        <p class="eyebrow">Standalone Admin</p>
+        <h1>Campaigns</h1>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a href="/dashboard" class="<%= requestPath === '/dashboard' ? 'active' : '' %>">Dashboard</a>
+      <a href="/campaigns" class="<%= requestPath.startsWith('/campaigns') ? 'active' : '' %>">Campaigns</a>
+      <a href="/campaigns/new" class="<%= requestPath === '/campaigns/new' ? 'active' : '' %>">Create Campaign</a>
+      <a href="/settings" class="<%= requestPath === '/settings' ? 'active' : '' %>">Settings</a>
+    </nav>
+
+    <form action="/logout" method="post" class="logout-form">
+      <button type="submit" class="button secondary full-width">Sign Out</button>
+    </form>
+  </aside>
+<% } %>

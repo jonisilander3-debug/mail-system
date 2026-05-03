@@ -1,0 +1,23 @@
+<%- include('../partials/head', { title }) %>
+<main class="auth-shell">
+  <section class="auth-card">
+    <p class="eyebrow">Postmark Campaign Admin</p>
+    <h1>Sign in</h1>
+    <p class="muted">This app is completely standalone and only used for mass email campaigns.</p>
+
+    <%- include('../partials/flash') %>
+
+    <form action="/login" method="post" class="stack">
+      <label>
+        <span>Email</span>
+        <input type="email" name="email" required>
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" name="password" required>
+      </label>
+      <button type="submit" class="button primary">Sign In</button>
+    </form>
+  </section>
+</main>
+<%- include('../partials/footer') %>

@@ -1,0 +1,141 @@
+<%- include('../partials/head', { title }) %>
+<div class="app-shell">
+  <%- include('../partials/nav') %>
+  <main class="content">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Configuration</p>
+        <h1>Settings</h1>
+      </div>
+    </header>
+
+    <%- include('../partials/flash') %>
+
+    <section class="panel">
+      <form action="/settings" method="post" class="stack">
+        <div class="form-grid">
+          <label>
+            <span>Batch Size</span>
+            <input type="number" min="1" max="500" name="batchSize" value="<%= settings.batchSize %>">
+          </label>
+          <label>
+            <span>Batch Delay Seconds</span>
+            <input type="number" min="1" max="3600" name="batchDelaySeconds" value="<%= settings.batchDelaySeconds %>">
+          </label>
+          <label class="span-2">
+            <span>App Base URL</span>
+            <input type="url" name="appBaseUrl" value="<%= settings.appBaseUrl %>">
+          </label>
+        </div>
+        <button type="submit" class="button primary">Save Settings</button>
+      </form>
+    </section>
+
+    <section class="grid-2">
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Sender Profiles</h2>
+        </div>
+        <form action="/settings/senders" method="post" class="stack">
+          <div class="form-grid">
+            <label>
+              <span>Profile Name</span>
+              <input type="text" name="name" placeholder="Domain 1" required>
+            </label>
+            <label>
+              <span>Domain</span>
+              <input type="text" name="domain" placeholder="example.com" required>
+            </label>
+            <label>
+              <span>From Name</span>
+              <input type="text" name="fromName" placeholder="Marketing Team" required>
+            </label>
+            <label>
+              <span>From Email</span>
+              <input type="email" name="fromEmail" placeholder="news@yourdomain.com" required>
+            </label>
+            <label>
+              <span>Message Stream</span>
+              <input type="text" name="messageStream" value="broadcast" required>
+            </label>
+            <label class="span-2">
+              <span>Postmark Server Token</span>
+              <input type="password" name="postmarkToken" required>
+            </label>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" name="isDefault">
+            <span>Use as default sender profile</span>
+          </label>
+          <button type="submit" class="button primary">Add Sender Profile</button>
+        </form>
+
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>From</th>
+              <th>Stream</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!senderProfiles.length) { %>
+              <tr><td colspan="3">No sender profiles yet.</td></tr>
+            <% } %>
+            <% senderProfiles.forEach((profile) => { %>
+              <tr>
+                <td><%= profile.name %> <%= profile.isDefault ? '(default)' : '' %></td>
+                <td><%= profile.fromName %> &lt;<%= profile.fromEmail %>&gt;</td>
+                <td><%= profile.messageStream %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <h2>Admin Users</h2>
+        </div>
+        <form action="/settings/admin-users" method="post" class="stack">
+          <div class="form-grid">
+            <label>
+              <span>Admin Email</span>
+              <input type="email" name="email" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" name="password" minlength="8" required>
+            </label>
+          </div>
+          <button type="submit" class="button primary">Add Admin User</button>
+        </form>
+
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Password</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% adminUsers.forEach((user) => { %>
+              <tr>
+                <td><%= user.email %></td>
+                <td><%= user.isActive ? 'active' : 'inactive' %></td>
+                <td>
+                  <form action="/settings/admin-users/<%= user.id %>/password" method="post" class="inline-form">
+                    <input type="password" name="password" minlength="8" placeholder="New password" required>
+                    <button type="submit" class="button secondary">Update</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </article>
+    </section>
+  </main>
+</div>
+<%- include('../partials/footer') %>

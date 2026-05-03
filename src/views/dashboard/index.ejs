@@ -1,0 +1,55 @@
+<%- include('../partials/head', { title }) %>
+<div class="app-shell">
+  <%- include('../partials/nav') %>
+  <main class="content">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Overview</p>
+        <h1>Dashboard</h1>
+      </div>
+      <a href="/campaigns/new" class="button primary">New Campaign</a>
+    </header>
+
+    <%- include('../partials/flash') %>
+
+    <section class="stats-grid">
+      <article class="stat-card"><span>Recent Campaigns</span><strong><%= stats.campaignCount %></strong></article>
+      <article class="stat-card"><span>Recipients Loaded</span><strong><%= stats.totalRecipients %></strong></article>
+      <article class="stat-card"><span>Emails Sent</span><strong><%= stats.sentCount %></strong></article>
+      <article class="stat-card"><span>Unsubscribed</span><strong><%= stats.unsubscribes %></strong></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Latest Campaigns</h2>
+        <span class="pill danger">Failed recipients: <%= stats.recentFailures %></span>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Recipients</th>
+            <th>Sent</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!campaigns.length) { %>
+            <tr><td colspan="5">No campaigns created yet.</td></tr>
+          <% } %>
+          <% campaigns.forEach((campaign) => { %>
+            <tr>
+              <td><a href="/campaigns/<%= campaign.id %>"><%= campaign.name %></a></td>
+              <td><span class="pill"><%= campaign.status %></span></td>
+              <td><%= campaign.validRecipients %> valid</td>
+              <td><%= campaign.sentCount %></td>
+              <td><%= new Date(campaign.createdAt).toLocaleString() %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+<%- include('../partials/footer') %>

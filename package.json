@@ -1,0 +1,48 @@
+{
+  "name": "email-utskick",
+  "version": "1.0.0",
+  "description": "Standalone Postmark-powered mass email campaign web app",
+  "main": "src/server.js",
+  "scripts": {
+    "db:start": "node src/scripts/start-local-db.js",
+    "db:push": "npm run db:start && prisma db push",
+    "build:web": "npm --prefix frontend run build",
+    "build": "npm run build:web",
+    "dev:api": "node src/server.js",
+    "dev:web": "npm --prefix frontend run dev",
+    "dev": "node src/scripts/dev-runner.js",
+    "start": "npm run db:start && node src/server.js",
+    "start:prod": "npx prisma migrate deploy && node src/server.js",
+    "worker": "node src/worker.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "test": "echo \"No automated tests configured yet\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^6.2.1",
+    "dotenv": "^17.4.2",
+    "ejs": "^5.0.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
+    "express-session": "^1.19.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "method-override": "^3.0.0",
+    "multer": "^2.1.1",
+    "pg": "^8.20.0",
+    "pg-boss": "^12.18.2",
+    "postmark": "^4.0.7",
+    "validator": "^13.15.35",
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3"
+  }
+}

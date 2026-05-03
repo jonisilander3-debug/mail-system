@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CampaignStatus {
+  draft
+  ready
+  sending
+  paused
+  completed
+  failed
+  stopped
+}
+
+enum RecipientStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AppSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SenderProfile {
+  id             Int        @id @default(autoincrement())
+  name           String
+  domain         String     @default("")
+  fromName       String
+  fromEmail      String
+  postmarkToken  String     @map("serverToken")
+  messageStream  String     @default("broadcast")
+  status         String     @default("active")
+  isDefault      Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  campaigns      Campaign[]
+
+  @@unique([domain, fromEmail, messageStream])
+}
+
+model Campaign {
+  id                 Int              @id @default(autoincrement())
+  senderProfileId    Int
+  name               String
+  fromName           String
+  fromEmail          String
+  subject            String
+  htmlBody           String
+  textBody           String
+  includeUnsubscribe Boolean          @default(false)
+  status             CampaignStatus   @default(draft)
+  totalRecipients    Int              @default(0)
+  validRecipients    Int              @default(0)
+  invalidRecipients  Int              @default(0)
+  sentCount          Int              @default(0)
+  failedCount        Int              @default(0)
+  duplicateCount     Int              @default(0)
+  unsubscribedCount  Int              @default(0)
+  testSentAt         DateTime?
+  lastTestEmail      String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  startedAt          DateTime?
+  completedAt        DateTime?
+  senderProfile      SenderProfile    @relation(fields: [senderProfileId], references: [id])
+  recipients         Recipient[]
+  sendAttempts       SendAttempt[]
+}
+
+model Recipient {
+  id                Int             @id @default(autoincrement())
+  campaignId        Int
+  email             String
+  name              String?
+  status            RecipientStatus @default(pending)
+  postmarkMessageId String?
+  errorMessage      String?
+  sentAt            DateTime?
+  createdAt         DateTime        @default(now())
+  campaign          Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sendAttempts      SendAttempt[]
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status])
+}
+
+model Unsubscribe {
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  token          String   @unique
+  unsubscribedAt DateTime @default(now())
+}
+
+model SendAttempt {
+  id              Int      @id @default(autoincrement())
+  campaignId      Int
+  recipientId     Int
+  status          String
+  requestPayload  Json?
+  responsePayload Json?
+  errorMessage    String?
+  attemptedAt     DateTime @default(now())
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  recipient       Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, attemptedAt])
+  @@index([recipientId, attemptedAt])
+}

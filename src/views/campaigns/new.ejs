@@ -1,0 +1,63 @@
+<%- include('../partials/head', { title }) %>
+<div class="app-shell">
+  <%- include('../partials/nav') %>
+  <main class="content">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Build Campaign</p>
+        <h1>Create Campaign</h1>
+      </div>
+    </header>
+
+    <section class="panel">
+      <% if (!senderProfiles.length) { %>
+        <div class="flash error">Create at least one sender profile in Settings before creating a campaign.</div>
+      <% } %>
+      <form action="/campaigns" method="post" class="stack">
+        <div class="form-grid">
+          <label>
+            <span>Campaign Name</span>
+            <input type="text" name="name" required>
+          </label>
+          <label>
+            <span>Sender Profile</span>
+            <select name="senderProfileId" required>
+              <% senderProfiles.forEach((profile) => { %>
+                <option value="<%= profile.id %>" <%= defaultSenderProfile && defaultSenderProfile.id === profile.id ? 'selected' : '' %>>
+                  <%= profile.name %> - <%= profile.fromEmail %> (<%= profile.messageStream %>)
+                </option>
+              <% }) %>
+            </select>
+          </label>
+          <label>
+            <span>Subject</span>
+            <input type="text" name="subject" required>
+          </label>
+        </div>
+
+        <label>
+          <span>HTML Body</span>
+          <textarea name="htmlBody" rows="10" required><h1>Hello {{name}}</h1><p>We are reaching you at {{email}}.</p></textarea>
+        </label>
+
+        <label>
+          <span>Plain Text Body</span>
+          <textarea name="textBody" rows="8" required>Hello {{name}},</textarea>
+        </label>
+
+        <label class="checkbox-row">
+          <input type="checkbox" name="includeUnsubscribe" checked>
+          <span>Add unsubscribe footer and link token</span>
+        </label>
+
+        <div class="info-box">
+          <strong>Personalization tokens</strong>
+          <p><code>{{email}}</code> <code>{{name}}</code> <code>{{unsubscribe_url}}</code></p>
+        </div>
+
+        <button type="submit" class="button primary" <%= !senderProfiles.length ? 'disabled' : '' %>>Create Campaign</button>
+      </form>
+    </section>
+  </main>
+</div>
+<%- include('../partials/footer') %>

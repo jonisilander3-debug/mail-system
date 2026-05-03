@@ -1,0 +1,15 @@
+<%- include('../partials/head', { title }) %>
+<main class="auth-shell">
+  <section class="auth-card">
+    <p class="eyebrow">Email Preferences</p>
+    <h1><%= success ? 'You have been unsubscribed' : 'Invalid unsubscribe link' %></h1>
+    <p class="muted">
+      <% if (success) { %>
+        <%= email %> will not receive future campaigns from this app.
+      <% } else { %>
+        This unsubscribe token could not be found.
+      <% } %>
+    </p>
+  </section>
+</main>
+<%- include('../partials/footer') %>

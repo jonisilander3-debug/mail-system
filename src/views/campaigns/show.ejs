@@ -1,0 +1,138 @@
+<%- include('../partials/head', { title }) %>
+<div class="app-shell">
+  <%- include('../partials/nav') %>
+  <main class="content">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Campaign Detail</p>
+        <h1><%= campaign.name %></h1>
+        <p class="muted">Status: <span class="pill"><%= campaign.status %></span></p>
+      </div>
+      <a href="/campaigns/<%= campaign.id %>/export" class="button secondary">Export Results CSV</a>
+    </header>
+
+    <%- include('../partials/flash') %>
+
+    <% if (importSummary) { %>
+      <section class="panel">
+        <div class="panel-header"><h2>Latest Import Summary</h2></div>
+        <div class="stats-grid">
+          <article class="stat-card"><span>Total Uploaded</span><strong><%= importSummary.totalUploaded %></strong></article>
+          <article class="stat-card"><span>Valid</span><strong><%= importSummary.validRecipients.length %></strong></article>
+          <article class="stat-card"><span>Invalid</span><strong><%= importSummary.invalidRecipients.length %></strong></article>
+          <article class="stat-card"><span>Duplicates Removed</span><strong><%= importSummary.duplicatesRemoved %></strong></article>
+        </div>
+        <% if (importSummary.invalidRecipients.length) { %>
+          <div class="panel-subtle">
+            <strong>Invalid emails</strong>
+            <p><%= importSummary.invalidRecipients.map((item) => item.email || '[blank]').join(', ') %></p>
+          </div>
+        <% } %>
+      </section>
+    <% } %>
+
+    <section class="grid-2">
+      <article class="panel">
+        <div class="panel-header"><h2>Campaign Summary</h2></div>
+        <div class="detail-list">
+          <div><span>Sender Profile</span><strong><%= campaign.senderProfile ? `${campaign.senderProfile.name} (${campaign.senderProfile.messageStream})` : 'Unknown sender' %></strong></div>
+          <div><span>From</span><strong><%= campaign.fromName %> &lt;<%= campaign.fromEmail %>&gt;</strong></div>
+          <div><span>Subject</span><strong><%= campaign.subject %></strong></div>
+          <div><span>Recipients</span><strong><%= campaign.validRecipients %> valid / <%= campaign.invalidRecipients %> invalid</strong></div>
+          <div><span>Removed</span><strong><%= campaign.duplicateCount %> duplicates / <%= campaign.unsubscribedCount %> unsubscribed</strong></div>
+          <div><span>Progress</span><strong><%= campaign.sentCount %> sent / <%= campaign.failedCount %> failed</strong></div>
+          <div><span>Test Email</span><strong><%= campaign.testSentAt ? `Sent to ${campaign.lastTestEmail}` : 'Required before start' %></strong></div>
+        </div>
+
+        <div class="actions">
+          <form action="/campaigns/<%= campaign.id %>/start" method="post" onsubmit="return confirm('You are about to send this campaign to <%= campaign.validRecipients %> recipients.');">
+            <button type="submit" class="button primary" <%= !campaign.testSentAt || campaign.validRecipients < 1 || campaign.status === 'sending' ? 'disabled' : '' %>>Start Campaign</button>
+          </form>
+          <form action="/campaigns/<%= campaign.id %>/pause" method="post">
+            <button type="submit" class="button secondary" <%= campaign.status !== 'sending' ? 'disabled' : '' %>>Pause</button>
+          </form>
+          <form action="/campaigns/<%= campaign.id %>/resume" method="post">
+            <button type="submit" class="button secondary" <%= campaign.status !== 'paused' ? 'disabled' : '' %>>Resume</button>
+          </form>
+          <form action="/campaigns/<%= campaign.id %>/stop" method="post">
+            <button type="submit" class="button danger" <%= !['sending', 'paused', 'ready'].includes(campaign.status) ? 'disabled' : '' %>>Stop</button>
+          </form>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header"><h2>Send Test Email</h2></div>
+        <form action="/campaigns/<%= campaign.id %>/test" method="post" class="stack">
+          <label>
+            <span>Test Email Address</span>
+            <input type="email" name="testEmail" required>
+          </label>
+          <button type="submit" class="button primary">Send Test</button>
+        </form>
+      </article>
+    </section>
+
+    <section class="grid-2">
+      <article class="panel">
+        <div class="panel-header"><h2>Upload Recipient CSV</h2></div>
+        <form action="/campaigns/<%= campaign.id %>/upload" method="post" enctype="multipart/form-data" class="stack">
+          <label>
+            <span>CSV File</span>
+            <input type="file" name="csvFile" accept=".csv" required>
+          </label>
+          <p class="muted">Supported columns: <code>email</code>, <code>name</code></p>
+          <button type="submit" class="button primary">Upload CSV</button>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header"><h2>Recipient Preview</h2></div>
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!recipients.length) { %>
+              <tr><td colspan="3">No recipients uploaded yet.</td></tr>
+            <% } %>
+            <% recipients.forEach((recipient) => { %>
+              <tr>
+                <td><%= recipient.email %></td>
+                <td><%= recipient.name || '-' %></td>
+                <td><%= recipient.status %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h2>Failed Recipients</h2></div>
+      <table class="table compact">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!failedRecipients.length) { %>
+            <tr><td colspan="2">No failed recipients yet.</td></tr>
+          <% } %>
+          <% failedRecipients.forEach((recipient) => { %>
+            <tr>
+              <td><%= recipient.email %></td>
+              <td><%= recipient.errorMessage || '-' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+<%- include('../partials/footer') %>
