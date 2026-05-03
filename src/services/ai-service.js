@@ -1,18 +1,26 @@
 const OpenAI = require("openai");
-const env = require("../config/env");
+const { getResolvedSettings } = require("./settings-service");
 
 let client = null;
+let clientApiKey = null;
 
-function getOpenAIClient() {
-  if (!env.openaiApiKey) {
-    return null;
+async function getOpenAIClient() {
+  const settings = await getResolvedSettings();
+  const apiKey = String(settings.openaiApiKey || "").trim();
+
+  if (!apiKey) {
+    return { client: null, model: settings.openaiModel || "gpt-5.4-mini" };
   }
 
-  if (!client) {
-    client = new OpenAI({ apiKey: env.openaiApiKey });
+  if (!client || clientApiKey !== apiKey) {
+    client = new OpenAI({ apiKey });
+    clientApiKey = apiKey;
   }
 
-  return client;
+  return {
+    client,
+    model: settings.openaiModel || "gpt-5.4-mini",
+  };
 }
 
 function stripCodeFences(value) {
@@ -38,10 +46,10 @@ function buildModeInstruction(mode) {
 }
 
 async function generateEmailDraft({ mode, userText, subject, senderDomain, language = "sv" }) {
-  const openai = getOpenAIClient();
+  const { client: openai, model } = await getOpenAIClient();
 
   if (!openai) {
-    const error = new Error("OPENAI_API_KEY is not configured. Add it to your environment before using the AI email generator.");
+    const error = new Error("OpenAI API-nyckel saknas. Lägg till den under Inställningar för att använda AI-assistenten.");
     error.code = "missing_openai_key";
     throw error;
   }
@@ -74,7 +82,7 @@ async function generateEmailDraft({ mode, userText, subject, senderDomain, langu
   ].join("\n");
 
   const response = await openai.responses.create({
-    model: env.openaiModel,
+    model,
     input: [
       {
         role: "system",

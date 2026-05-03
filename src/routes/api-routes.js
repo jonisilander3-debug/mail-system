@@ -30,6 +30,10 @@ const {
   listAllowedSenderProfileIdsForUser,
   serializeAdminUserWithAccess,
 } = require("../services/admin-user-service");
+const {
+  getAdminSettings,
+  updateSettings,
+} = require("../services/settings-service");
 
 function requireJsonAuth(req, res, next) {
   if (!req.session.user) {
@@ -432,6 +436,33 @@ router.get("/settings/domains", requireJsonAuth, async (req, res) => {
   const scope = String(req.query.scope || "allowed").trim().toLowerCase();
   const domains = await getAccessibleSenderProfiles(req, scope);
   return res.json({ domains: domains.map(serializeSenderProfile) });
+});
+
+router.get("/settings/app", requireJsonAuth, async (req, res) => {
+  const settings = await getAdminSettings();
+  return res.json({ settings });
+});
+
+router.put("/settings/app", requireJsonAuth, async (req, res) => {
+  const nextSettings = {};
+  const openaiModel = String(req.body.openaiModel || "").trim();
+  const openaiApiKey = String(req.body.openaiApiKey || "").trim();
+
+  if (openaiModel) {
+    nextSettings.openaiModel = openaiModel;
+  }
+
+  if (openaiApiKey) {
+    nextSettings.openaiApiKey = openaiApiKey;
+  }
+
+  if (Object.keys(nextSettings).length === 0) {
+    return res.status(400).json({ error: "Add an OpenAI model or API key before saving settings." });
+  }
+
+  await updateSettings(nextSettings);
+  const settings = await getAdminSettings();
+  return res.json({ settings });
 });
 
 router.post("/settings/domains", requireJsonAuth, async (req, res) => {

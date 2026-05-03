@@ -20,7 +20,7 @@ module.exports = {
   postmarkFromEmail: process.env.POSTMARK_FROM_EMAIL || "",
   postmarkFromName: process.env.POSTMARK_FROM_NAME || "",
   openaiApiKey: process.env.OPENAI_API_KEY || "",
-  openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  openaiModel: process.env.OPENAI_MODEL || "gpt-5.4-mini",
   defaultBatchSize: getNumber(process.env.DEFAULT_BATCH_SIZE, 100),
   defaultBatchDelaySeconds: getNumber(process.env.DEFAULT_BATCH_DELAY_SECONDS, 60),
   adminEmail: process.env.ADMIN_EMAIL || "admin@example.com",

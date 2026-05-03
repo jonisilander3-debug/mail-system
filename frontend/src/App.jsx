@@ -42,6 +42,14 @@ const emptyUserForm = {
   senderProfileIds: [],
 };
 
+const emptyAiSettingsForm = {
+  openaiModel: "gpt-5.4-mini",
+  openaiApiKey: "",
+  maskedOpenaiApiKey: "",
+  hasOpenaiApiKey: false,
+  saving: false,
+};
+
 const MISSING_POSTMARK_WARNING = "Den här domänen saknar Postmark API-nyckel.";
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
@@ -110,6 +118,9 @@ function App() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
+  const [aiSettings, setAiSettings] = useState(emptyAiSettingsForm);
+  const [aiSettingsLoading, setAiSettingsLoading] = useState(false);
+  const [aiSettingsError, setAiSettingsError] = useState("");
   const [userModalState, setUserModalState] = useState({
     open: false,
     mode: "create",
@@ -216,6 +227,30 @@ function App() {
     }
   }
 
+  async function loadAiSettings() {
+    setAiSettingsLoading(true);
+    setAiSettingsError("");
+
+    try {
+      const data = await requestJson("/api/settings/app");
+      const settings = data.settings || {};
+      setAiSettings({
+        openaiModel: settings.openaiModel || "gpt-5.4-mini",
+        openaiApiKey: "",
+        maskedOpenaiApiKey: settings.maskedOpenaiApiKey || "",
+        hasOpenaiApiKey: Boolean(settings.hasOpenaiApiKey),
+        saving: false,
+      });
+    } catch (error) {
+      setAiSettings({
+        ...emptyAiSettingsForm,
+      });
+      setAiSettingsError(error.message || "Could not load AI settings.");
+    } finally {
+      setAiSettingsLoading(false);
+    }
+  }
+
   async function loadRecipientsByDomain(nextSenderProfileId) {
     const targetId = nextSenderProfileId || recipientDomainId || selectedProfileId || null;
     setRecipientExplorerLoading(true);
@@ -242,6 +277,7 @@ function App() {
     if (authStatus === "authenticated") {
       loadProfiles();
       loadUsers();
+      loadAiSettings();
       return;
     }
 
@@ -256,6 +292,8 @@ function App() {
       setSavedCampaignId(null);
       setUsers([]);
       setUsersError("");
+      setAiSettings({ ...emptyAiSettingsForm });
+      setAiSettingsError("");
       setRecipientRows([]);
       setRecipientExplorerError("");
       setTestEmail("");
@@ -370,6 +408,56 @@ function App() {
         [field]: value,
       },
     }));
+  }
+
+  function updateAiSettingsField(field, value) {
+    setAiSettings((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setAiSettingsError("");
+  }
+
+  async function handleAiSettingsSave() {
+    if (!aiSettings.openaiModel.trim() && !aiSettings.openaiApiKey.trim()) {
+      setAiSettingsError("Fyll i OpenAI-model eller API-nyckel innan du sparar.");
+      return;
+    }
+
+    setAiSettings((current) => ({
+      ...current,
+      saving: true,
+    }));
+    setAiSettingsError("");
+
+    try {
+      const data = await requestJson("/api/settings/app", {
+        method: "PUT",
+        body: JSON.stringify({
+          openaiModel: aiSettings.openaiModel.trim(),
+          openaiApiKey: aiSettings.openaiApiKey.trim(),
+        }),
+      });
+
+      const settings = data.settings || {};
+      setAiSettings({
+        openaiModel: settings.openaiModel || "gpt-5.4-mini",
+        openaiApiKey: "",
+        maskedOpenaiApiKey: settings.maskedOpenaiApiKey || "",
+        hasOpenaiApiKey: Boolean(settings.hasOpenaiApiKey),
+        saving: false,
+      });
+      setBanner({
+        type: "success",
+        message: "AI-installningarna sparades.",
+      });
+    } catch (error) {
+      setAiSettings((current) => ({
+        ...current,
+        saving: false,
+      }));
+      setAiSettingsError(error.message || "Could not save AI settings.");
+    }
   }
 
   async function handleLogin(event) {
@@ -1000,6 +1088,11 @@ function App() {
               onCreateUser={openCreateUserModal}
               onEditUser={openEditUserModal}
               onRefreshUsers={loadUsers}
+              aiSettings={aiSettings}
+              aiSettingsLoading={aiSettingsLoading}
+              aiSettingsError={aiSettingsError}
+              onAiSettingsChange={updateAiSettingsField}
+              onAiSettingsSave={handleAiSettingsSave}
             />
           ) : null}
 

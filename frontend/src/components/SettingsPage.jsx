@@ -15,13 +15,18 @@ export default function SettingsPage({
   onCreateUser,
   onEditUser,
   onRefreshUsers,
+  aiSettings,
+  aiSettingsLoading,
+  aiSettingsError,
+  onAiSettingsChange,
+  onAiSettingsSave,
 }) {
   return (
     <section className="mx-auto w-full max-w-6xl space-y-6">
       <Panel
-        eyebrow="Inställningar"
-        title="Domäner, API och användare"
-        description="Hantera både avsändardomäner och vilka användare som får arbeta med respektive domän."
+        eyebrow="Installningar"
+        title="Domaner, API och anvandare"
+        description="Hantera avsandardomaner, OpenAI for AI-assistenten och vilka anvandare som far arbeta med respektive doman."
       >
         <div className="flex flex-wrap gap-3">
           <button
@@ -29,14 +34,14 @@ export default function SettingsPage({
             onClick={onCreateProfile}
             className="rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)]"
           >
-            Lägg till domän
+            Lagg till doman
           </button>
           <button
             type="button"
             onClick={onCreateUser}
             className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100"
           >
-            Lägg till användare
+            Lagg till anvandare
           </button>
           <button
             type="button"
@@ -52,13 +57,77 @@ export default function SettingsPage({
       </Panel>
 
       <Panel
-        eyebrow="Domäner & API"
-        title="Avsändarprofiler"
-        description="Här skapar du domänerna som användare senare får rätt att se och skicka från."
+        eyebrow="AI"
+        title="OpenAI"
+        description="Lagg in OpenAI API-nyckeln har sa att AI-assistenten kan ratta text, gora mejlen mer professionella och bygga HTML-email i kampanjguiden."
       >
-        {profilesLoading ? (
-          <StatusMessage tone="info">Laddar domänprofiler...</StatusMessage>
-        ) : null}
+        {aiSettingsLoading ? <StatusMessage tone="info">Laddar AI-installningar...</StatusMessage> : null}
+        {aiSettingsError ? <StatusMessage tone="error">{aiSettingsError}</StatusMessage> : null}
+
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-4 rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold text-white">AI-assistent</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Nyckeln visas aldrig tillbaka i klartext efter att den sparats.
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  aiSettings.hasOpenaiApiKey ? "bg-cyan-400/15 text-cyan-100" : "bg-amber-400/15 text-amber-200"
+                }`}
+              >
+                {aiSettings.hasOpenaiApiKey ? "API key added" : "API key missing"}
+              </span>
+            </div>
+
+            <label className="block rounded-[24px] border border-white/10 bg-slate-950/50 p-5">
+              <span className="text-xs uppercase tracking-[0.24em] text-slate-500">OpenAI-model</span>
+              <input
+                type="text"
+                value={aiSettings.openaiModel}
+                onChange={(event) => onAiSettingsChange("openaiModel", event.target.value)}
+                placeholder="gpt-5.4-mini"
+                className="mt-3 w-full rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+              />
+            </label>
+
+            <label className="block rounded-[24px] border border-white/10 bg-slate-950/50 p-5">
+              <span className="text-xs uppercase tracking-[0.24em] text-slate-500">OpenAI API-nyckel</span>
+              <input
+                type="password"
+                value={aiSettings.openaiApiKey}
+                onChange={(event) => onAiSettingsChange("openaiApiKey", event.target.value)}
+                placeholder="Leave empty to keep existing API key"
+                className="mt-3 w-full rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={onAiSettingsSave}
+              disabled={aiSettings.saving}
+              className="rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {aiSettings.saving ? "Sparar..." : "Spara AI-installningar"}
+            </button>
+          </div>
+
+          <div className="grid gap-3">
+            <DetailRow label="Model" value={aiSettings.openaiModel || "gpt-5.4-mini"} />
+            <DetailRow label="Masked key" value={aiSettings.maskedOpenaiApiKey || "No API key stored"} />
+            <DetailRow label="Status" value={aiSettings.hasOpenaiApiKey ? "Klar" : "Saknas"} />
+          </div>
+        </div>
+      </Panel>
+
+      <Panel
+        eyebrow="Domaner & API"
+        title="Avsandarprofiler"
+        description="Har skapar du domanerna som anvandare senare far ratt att se och skicka fran."
+      >
+        {profilesLoading ? <StatusMessage tone="info">Laddar domanprofiler...</StatusMessage> : null}
         {profilesError ? <StatusMessage tone="error">{profilesError}</StatusMessage> : null}
 
         <div className="mt-6 grid gap-4 xl:grid-cols-2">
@@ -109,7 +178,7 @@ export default function SettingsPage({
                     onClick={() => setSelectedProfileId(profile.id)}
                     className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100"
                   >
-                    Välj
+                    Valj
                   </button>
                   <button
                     type="button"
@@ -141,11 +210,11 @@ export default function SettingsPage({
       </Panel>
 
       <Panel
-        eyebrow="Användare"
-        title="Domänrättigheter"
-        description="Skapa användare, inaktivera konton och välj vilka domäner varje användare får skapa email från."
+        eyebrow="Anvandare"
+        title="Domanrattigheter"
+        description="Skapa anvandare, inaktivera konton och valj vilka domaner varje anvandare far skapa email fran."
       >
-        {usersLoading ? <StatusMessage tone="info">Laddar användare...</StatusMessage> : null}
+        {usersLoading ? <StatusMessage tone="info">Laddar anvandare...</StatusMessage> : null}
         {usersError ? <StatusMessage tone="error">{usersError}</StatusMessage> : null}
 
         <div className="overflow-hidden rounded-[22px] border border-white/8">
@@ -154,15 +223,15 @@ export default function SettingsPage({
               <tr>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Domäner</th>
-                <th className="px-4 py-3">Åtgärd</th>
+                <th className="px-4 py-3">Domaner</th>
+                <th className="px-4 py-3">Atgard</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/6">
               {!usersLoading && users.length === 0 ? (
                 <tr className="bg-slate-950/40">
                   <td className="px-4 py-6 text-center text-sm text-slate-400" colSpan={4}>
-                    Inga extra användare finns ännu.
+                    Inga extra anvandare finns an.
                   </td>
                 </tr>
               ) : null}
@@ -181,7 +250,7 @@ export default function SettingsPage({
                   <td className="px-4 py-3 text-slate-300">
                     {user.senderProfiles.length > 0
                       ? user.senderProfiles.map((profile) => profile.domain).join(", ")
-                      : "Inga domäner valda"}
+                      : "Inga domaner valda"}
                   </td>
                   <td className="px-4 py-3">
                     <button
