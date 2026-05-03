@@ -11,6 +11,7 @@ const {
 } = require("../utils/template");
 
 const QUEUE_NAME = "send-campaign-batch";
+const activeCampaignRuns = new Set();
 const MISSING_POSTMARK_TOKEN_ERROR = "Postmark API key saknas för vald domän. Lägg till den under Domäner & API.";
 
 async function queueCampaignBatch(campaignId, delaySeconds = 0) {
@@ -141,9 +142,25 @@ async function startCampaign(campaignId) {
 
   await updateCampaignStatus(campaignId, "sending");
   await queueCampaignBatch(campaignId);
+  scheduleCampaignProcessingFallback(campaignId);
+}
+
+function scheduleCampaignProcessingFallback(campaignId) {
+  setTimeout(() => {
+    processCampaignBatch(campaignId).catch((error) => {
+      console.error(`Fallback campaign processing failed for campaign ${campaignId}`, error);
+    });
+  }, 250);
 }
 
 async function processCampaignBatch(campaignId) {
+  if (activeCampaignRuns.has(campaignId)) {
+    return;
+  }
+
+  activeCampaignRuns.add(campaignId);
+
+  try {
   const [campaign, settings] = await Promise.all([
     prisma.campaign.findUnique({
       where: { id: campaignId },
@@ -275,6 +292,9 @@ async function processCampaignBatch(campaignId) {
 
   if (updated.status === "sending") {
     await queueCampaignBatch(campaignId, settings.batchDelaySeconds);
+  }
+  } finally {
+    activeCampaignRuns.delete(campaignId);
   }
 }
 
