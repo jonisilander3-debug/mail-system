@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import CampaignWizardFlow from "./components/CampaignWizard";
+import CampaignsPage from "./components/CampaignsPage";
 import RecipientsPage from "./components/RecipientsPage";
 import SettingsPage from "./components/SettingsPage";
 import UserModal from "./components/UserModal";
@@ -98,6 +99,10 @@ function App() {
   });
   const [campaignSaveLoading, setCampaignSaveLoading] = useState(false);
   const [savedCampaignId, setSavedCampaignId] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [campaignsError, setCampaignsError] = useState("");
+  const [highlightedCampaignId, setHighlightedCampaignId] = useState(null);
   const [testEmail, setTestEmail] = useState("");
   const [testEmailLoading, setTestEmailLoading] = useState(false);
   const [testEmailSent, setTestEmailSent] = useState(false);
@@ -220,6 +225,21 @@ function App() {
     }
   }
 
+  async function loadCampaigns() {
+    setCampaignsLoading(true);
+    setCampaignsError("");
+
+    try {
+      const data = await requestJson("/api/campaigns");
+      setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
+    } catch (error) {
+      setCampaigns([]);
+      setCampaignsError(error.message || "Could not load campaigns.");
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }
+
   async function loadUsers() {
     setUsersLoading(true);
     setUsersError("");
@@ -299,6 +319,7 @@ function App() {
 
   useEffect(() => {
     if (authStatus === "authenticated") {
+      loadCampaigns();
       loadProfiles();
       loadUsers();
       loadAiSettings();
@@ -309,6 +330,8 @@ function App() {
     if (authStatus === "unauthenticated") {
       setProfilesLoading(false);
       setProfilesError("");
+      setCampaigns([]);
+      setCampaignsError("");
       setSenderProfiles([]);
       setSelectedProfileId(null);
       setRecipientPreview(createEmptyRecipientPreview());
@@ -338,6 +361,12 @@ function App() {
       loadRecipientsByDomain(recipientDomainId || selectedProfileId);
     }
   }, [activeView, authStatus, selectedProfileId]);
+
+  useEffect(() => {
+    if (authStatus === "authenticated" && activeView === "campaigns") {
+      loadCampaigns();
+    }
+  }, [activeView, authStatus]);
 
   const selectedProfile =
     senderProfiles.find((profile) => profile.id === selectedProfileId) || senderProfiles[0] || null;
@@ -680,6 +709,7 @@ function App() {
     setUploadLoading(false);
     setUploadError("");
     setUploadedFileName("");
+    setHighlightedCampaignId(null);
     setBanner({
       type: "success",
       message: "Kampanjen ar igang. Du kan nu skapa ett nytt utskick.",
@@ -850,6 +880,9 @@ function App() {
       }
 
       setCampaignStarted(true);
+      setHighlightedCampaignId(savedCampaignId);
+      setActiveView("campaigns");
+      await loadCampaigns();
       setBanner({
         type: "success",
         message: "Kampanjen har startats och lagts i ko for utskick.",
@@ -1151,6 +1184,16 @@ function App() {
             />
           ) : null}
 
+          {activeView === "campaigns" ? (
+            <CampaignsPage
+              campaigns={campaigns}
+              loading={campaignsLoading}
+              error={campaignsError}
+              highlightedCampaignId={highlightedCampaignId}
+              onRefresh={loadCampaigns}
+            />
+          ) : null}
+
           {activeView === "recipients" ? (
             <RecipientsPage
               senderProfiles={senderProfiles}
@@ -1193,7 +1236,7 @@ function App() {
             />
           ) : null}
 
-          {activeView !== "create-campaign" && activeView !== "settings" && activeView !== "recipients" ? (
+          {activeView !== "create-campaign" && activeView !== "campaigns" && activeView !== "settings" && activeView !== "recipients" ? (
             <PlaceholderPage activeView={activeView} />
           ) : null}
         </main>
