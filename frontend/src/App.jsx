@@ -20,7 +20,11 @@ const assistantNotes = [
   "28 recipients look valid. 1 invalid and 1 duplicate were detected.",
 ];
 
-const API_BASE_URL = "http://127.0.0.1:3000";
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+function apiUrl(path) {
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
 
 function App() {
   const [senderProfiles, setSenderProfiles] = useState([]);
@@ -36,7 +40,7 @@ function App() {
       setProfilesError("");
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/domains`, {
+        const response = await fetch(apiUrl("/api/settings/domains"), {
           credentials: "include",
         });
 
