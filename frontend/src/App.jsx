@@ -45,6 +45,7 @@ const emptyUserForm = {
 const emptyAiSettingsForm = {
   openaiModel: "gpt-5.4-mini",
   openaiApiKey: "",
+  openaiHtmlPrompt: "",
   maskedOpenaiApiKey: "",
   hasOpenaiApiKey: false,
   saving: false,
@@ -93,6 +94,7 @@ function App() {
     rawMessage: "",
     textBody: "",
     htmlBody: "",
+    language: "sv",
   });
   const [campaignSaveLoading, setCampaignSaveLoading] = useState(false);
   const [savedCampaignId, setSavedCampaignId] = useState(null);
@@ -237,6 +239,7 @@ function App() {
       setAiSettings({
         openaiModel: settings.openaiModel || "gpt-5.4-mini",
         openaiApiKey: "",
+        openaiHtmlPrompt: settings.openaiHtmlPrompt || "",
         maskedOpenaiApiKey: settings.maskedOpenaiApiKey || "",
         hasOpenaiApiKey: Boolean(settings.hasOpenaiApiKey),
         saving: false,
@@ -419,8 +422,8 @@ function App() {
   }
 
   async function handleAiSettingsSave() {
-    if (!aiSettings.openaiModel.trim() && !aiSettings.openaiApiKey.trim()) {
-      setAiSettingsError("Fyll i OpenAI-model eller API-nyckel innan du sparar.");
+    if (!aiSettings.openaiModel.trim() && !aiSettings.openaiApiKey.trim() && !aiSettings.openaiHtmlPrompt.trim()) {
+      setAiSettingsError("Fyll i OpenAI-model, HTML-prompt eller API-nyckel innan du sparar.");
       return;
     }
 
@@ -436,6 +439,7 @@ function App() {
         body: JSON.stringify({
           openaiModel: aiSettings.openaiModel.trim(),
           openaiApiKey: aiSettings.openaiApiKey.trim(),
+          openaiHtmlPrompt: aiSettings.openaiHtmlPrompt.trim(),
         }),
       });
 
@@ -443,6 +447,7 @@ function App() {
       setAiSettings({
         openaiModel: settings.openaiModel || "gpt-5.4-mini",
         openaiApiKey: "",
+        openaiHtmlPrompt: settings.openaiHtmlPrompt || "",
         maskedOpenaiApiKey: settings.maskedOpenaiApiKey || "",
         hasOpenaiApiKey: Boolean(settings.hasOpenaiApiKey),
         saving: false,
@@ -677,7 +682,7 @@ function App() {
           userText: campaignForm.rawMessage,
           subject: campaignForm.subject,
           senderDomain: selectedProfile?.domain || "",
-          language: "sv",
+          language: campaignForm.language || "sv",
         }),
       });
 

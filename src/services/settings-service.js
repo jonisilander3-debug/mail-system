@@ -1,7 +1,15 @@
 const prisma = require("../lib/prisma");
 const env = require("../config/env");
 
-const settingKeys = ["batchSize", "batchDelaySeconds", "appBaseUrl", "openaiApiKey", "openaiModel"];
+const settingKeys = ["batchSize", "batchDelaySeconds", "appBaseUrl", "openaiApiKey", "openaiModel", "openaiHtmlPrompt"];
+
+const defaultOpenAiHtmlPrompt = [
+  "Create a premium marketing email template that feels modern, trustworthy, and conversion-focused.",
+  "Use a clear content hierarchy with a strong headline, supporting copy, one main CTA button, and a clean footer.",
+  "Keep the layout email-safe and broadly compatible across major email clients.",
+  "Use inline CSS only, soft spacing, rounded sections where appropriate, and a polished Scandinavian SaaS feel.",
+  "Make the HTML visually stronger than a plain text-to-HTML conversion while still staying lightweight and easy to read.",
+].join(" ");
 
 function maskSecret(value, { prefix = "", visibleSuffix = 4 } = {}) {
   const input = String(value || "").trim();
@@ -33,6 +41,7 @@ async function getResolvedSettings() {
     appBaseUrl: map.appBaseUrl || env.appBaseUrl,
     openaiApiKey: map.openaiApiKey || env.openaiApiKey || "",
     openaiModel: map.openaiModel || env.openaiModel || "gpt-5.4-mini",
+    openaiHtmlPrompt: map.openaiHtmlPrompt || defaultOpenAiHtmlPrompt,
   };
 }
 
@@ -44,6 +53,7 @@ async function getAdminSettings() {
     batchDelaySeconds: settings.batchDelaySeconds,
     appBaseUrl: settings.appBaseUrl,
     openaiModel: settings.openaiModel,
+    openaiHtmlPrompt: settings.openaiHtmlPrompt,
     hasOpenaiApiKey: Boolean(settings.openaiApiKey),
     maskedOpenaiApiKey: settings.openaiApiKey ? maskSecret(settings.openaiApiKey, { prefix: "sk-" }) : "",
   };
@@ -66,4 +76,5 @@ module.exports = {
   updateSettings,
   settingKeys,
   maskSecret,
+  defaultOpenAiHtmlPrompt,
 };

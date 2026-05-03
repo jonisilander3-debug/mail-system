@@ -447,6 +447,7 @@ router.put("/settings/app", requireJsonAuth, async (req, res) => {
   const nextSettings = {};
   const openaiModel = String(req.body.openaiModel || "").trim();
   const openaiApiKey = String(req.body.openaiApiKey || "").trim();
+  const openaiHtmlPrompt = String(req.body.openaiHtmlPrompt || "").trim();
 
   if (openaiModel) {
     nextSettings.openaiModel = openaiModel;
@@ -456,8 +457,12 @@ router.put("/settings/app", requireJsonAuth, async (req, res) => {
     nextSettings.openaiApiKey = openaiApiKey;
   }
 
+  if (openaiHtmlPrompt) {
+    nextSettings.openaiHtmlPrompt = openaiHtmlPrompt;
+  }
+
   if (Object.keys(nextSettings).length === 0) {
-    return res.status(400).json({ error: "Add an OpenAI model or API key before saving settings." });
+    return res.status(400).json({ error: "Add an OpenAI model, HTML prompt, or API key before saving settings." });
   }
 
   await updateSettings(nextSettings);

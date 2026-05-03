@@ -151,6 +151,17 @@ export default function CampaignWizard({
                   onChange={(value) => onCampaignFieldChange("subject", value)}
                   placeholder="Nyheter och erbjudanden for dig"
                 />
+                <SelectInput
+                  label="Sprak"
+                  value={campaignForm.language || "sv"}
+                  onChange={(value) => onCampaignFieldChange("language", value)}
+                  options={[
+                    { value: "sv", label: "Svenska" },
+                    { value: "en", label: "English" },
+                    { value: "da", label: "Dansk" },
+                    { value: "no", label: "Norsk" },
+                  ]}
+                />
                 <TextArea
                   label="Meddelande"
                   value={campaignForm.rawMessage}
@@ -203,6 +214,7 @@ export default function CampaignWizard({
                   <DetailRow label="Fran email" value={selectedProfile?.fromEmail || "Ingen vald"} />
                   <DetailRow label="Message stream" value={selectedProfile?.messageStream || "Ingen vald"} />
                   <DetailRow label="API-nyckel" value={selectedProfile?.maskedToken || "Ingen nyckel sparad"} />
+                  <DetailRow label="Sprak" value={campaignForm.language || "sv"} />
                   <DetailRow label="Personalisering" value={"{{name}}, {{email}}, {{unsubscribe_url}}"} />
                 </div>
                 {!selectedProfile?.maskedToken ? (
@@ -616,6 +628,25 @@ function TextArea({ label, value, onChange, placeholder = "" }) {
         rows={8}
         className="mt-3 w-full rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
       />
+    </label>
+  );
+}
+
+function SelectInput({ label, value, onChange, options }) {
+  return (
+    <label className="block rounded-[24px] border border-white/10 bg-slate-900/70 p-5">
+      <span className="text-xs uppercase tracking-[0.24em] text-slate-500">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-3 w-full rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

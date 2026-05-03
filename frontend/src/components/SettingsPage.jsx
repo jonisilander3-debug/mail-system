@@ -104,6 +104,17 @@ export default function SettingsPage({
               />
             </label>
 
+            <label className="block rounded-[24px] border border-white/10 bg-slate-950/50 p-5">
+              <span className="text-xs uppercase tracking-[0.24em] text-slate-500">AI HTML prompt</span>
+              <textarea
+                value={aiSettings.openaiHtmlPrompt}
+                onChange={(event) => onAiSettingsChange("openaiHtmlPrompt", event.target.value)}
+                placeholder="Describe the visual style, layout, CTA structure, and tone you want AI to use when generating HTML email templates."
+                rows={7}
+                className="mt-3 w-full rounded-2xl border border-white/8 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+              />
+            </label>
+
             <button
               type="button"
               onClick={onAiSettingsSave}
@@ -118,6 +129,7 @@ export default function SettingsPage({
             <DetailRow label="Model" value={aiSettings.openaiModel || "gpt-5.4-mini"} />
             <DetailRow label="Masked key" value={aiSettings.maskedOpenaiApiKey || "No API key stored"} />
             <DetailRow label="Status" value={aiSettings.hasOpenaiApiKey ? "Klar" : "Saknas"} />
+            <DetailRow label="HTML prompt" value={aiSettings.openaiHtmlPrompt ? "Configured" : "Using default"} />
           </div>
         </div>
       </Panel>

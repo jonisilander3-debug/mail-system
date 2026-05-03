@@ -20,6 +20,7 @@ async function getOpenAIClient() {
   return {
     client,
     model: settings.openaiModel || "gpt-5.4-mini",
+    settings,
   };
 }
 
@@ -46,7 +47,7 @@ function buildModeInstruction(mode) {
 }
 
 async function generateEmailDraft({ mode, userText, subject, senderDomain, language = "sv" }) {
-  const { client: openai, model } = await getOpenAIClient();
+  const { client: openai, model, settings } = await getOpenAIClient();
 
   if (!openai) {
     const error = new Error("OpenAI API-nyckel saknas. Lägg till den under Inställningar för att använda AI-assistenten.");
@@ -60,6 +61,8 @@ async function generateEmailDraft({ mode, userText, subject, senderDomain, langu
   const domain = String(senderDomain || "").trim();
   const lang = String(language || "sv").trim().toLowerCase() || "sv";
 
+  const customHtmlPrompt = String(settings?.openaiHtmlPrompt || "").trim();
+
   const systemPrompt = [
     "You are an expert email copywriter for customer-facing campaigns.",
     `Write in ${lang === "sv" ? "Swedish" : lang}.`,
@@ -69,6 +72,7 @@ async function generateEmailDraft({ mode, userText, subject, senderDomain, langu
     "Always include {{unsubscribe_url}} in a short footer.",
     "For htmlBody, produce email-safe HTML with inline CSS only.",
     "Do not use external images, external fonts, scripts, forms, or unsupported interactive elements.",
+    ...(safeMode === "html_email" && customHtmlPrompt ? [customHtmlPrompt] : []),
     "Return only valid JSON with keys: subject, textBody, htmlBody.",
   ].join(" ");
 
