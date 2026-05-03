@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const missingPostmarkWarning = "Den har domanen saknar Postmark API-nyckel.";
 
@@ -34,6 +34,8 @@ export default function CampaignWizard({
   onSendTestEmail,
   onStartCampaign,
   onAIGenerate,
+  onCreateAnotherCampaign,
+  resetSignal,
 }) {
   const [currentStep, setCurrentStep] = useState(1);
   const previewRows = recipientPreview.rowsPreview || [];
@@ -54,7 +56,7 @@ export default function CampaignWizard({
     1: hasStepOneData,
     2: hasValidRecipients,
     3: hasSavedDraft,
-    4: false,
+    4: campaignStarted,
   };
 
   const nextEnabled =
@@ -71,6 +73,10 @@ export default function CampaignWizard({
       setCurrentStep((step) => step - 1);
     }
   }
+
+  useEffect(() => {
+    setCurrentStep(1);
+  }, [resetSignal]);
 
   return (
     <section className="mx-auto w-full max-w-6xl">
@@ -521,6 +527,8 @@ export default function CampaignWizard({
           onBack={goBack}
           onNext={goNext}
           nextEnabled={nextEnabled}
+          campaignStarted={campaignStarted}
+          onCreateAnotherCampaign={onCreateAnotherCampaign}
         />
       </div>
     </section>
@@ -570,7 +578,7 @@ function WizardProgress({ steps, currentStep, completion, onStepSelect }) {
   );
 }
 
-function WizardFooter({ currentStep, totalSteps, onBack, onNext, nextEnabled }) {
+function WizardFooter({ currentStep, totalSteps, onBack, onNext, nextEnabled, campaignStarted, onCreateAnotherCampaign }) {
   return (
     <div className="mt-10 flex flex-col gap-4 border-t border-white/8 pt-6 sm:flex-row sm:items-center sm:justify-between">
       <button
@@ -585,14 +593,25 @@ function WizardFooter({ currentStep, totalSteps, onBack, onNext, nextEnabled }) 
         <span className="text-sm text-slate-500">
           Steg {currentStep} av {totalSteps}
         </span>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!nextEnabled || currentStep === totalSteps}
-          className="rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Fortsatt
-        </button>
+        {currentStep === totalSteps ? (
+          <button
+            type="button"
+            onClick={onCreateAnotherCampaign}
+            disabled={!campaignStarted}
+            className="rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Ny kampanj
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!nextEnabled}
+            className="rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Fortsatt
+          </button>
+        )}
       </div>
     </div>
   );

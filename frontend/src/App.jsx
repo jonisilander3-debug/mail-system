@@ -136,6 +136,7 @@ function App() {
   const [recipientRows, setRecipientRows] = useState([]);
   const [recipientExplorerLoading, setRecipientExplorerLoading] = useState(false);
   const [recipientExplorerError, setRecipientExplorerError] = useState("");
+  const [wizardResetSignal, setWizardResetSignal] = useState(0);
   const recipientFileInputRef = useRef(null);
 
   async function requestJson(path, options = {}) {
@@ -616,6 +617,33 @@ function App() {
     setCampaignStarted(false);
   }
 
+  function resetCampaignWizard() {
+    setCampaignForm({
+      campaignName: "",
+      subject: "",
+      rawMessage: "",
+      textBody: "",
+      htmlBody: "",
+      language: "sv",
+    });
+    setSavedCampaignId(null);
+    setTestEmail("");
+    setTestEmailSent(false);
+    setCampaignStarting(false);
+    setCampaignStarted(false);
+    setAiLoadingMode("");
+    setAiError("");
+    setRecipientPreview(createEmptyRecipientPreview());
+    setUploadLoading(false);
+    setUploadError("");
+    setUploadedFileName("");
+    setBanner({
+      type: "success",
+      message: "Kampanjen ar igang. Du kan nu skapa ett nytt utskick.",
+    });
+    setWizardResetSignal((value) => value + 1);
+  }
+
   async function handleSaveCampaign() {
     const payload = {
       senderProfileId: selectedProfileId,
@@ -1075,6 +1103,8 @@ function App() {
               onSendTestEmail={handleSendTestEmail}
               onStartCampaign={handleStartCampaign}
               onAIGenerate={handleAIGenerate}
+              onCreateAnotherCampaign={resetCampaignWizard}
+              resetSignal={wizardResetSignal}
             />
           ) : null}
 
