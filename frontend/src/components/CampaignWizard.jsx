@@ -52,7 +52,7 @@ export default function CampaignWizard({
   const completion = {
     1: hasStepOneData,
     2: hasValidRecipients,
-    3: hasSavedDraft && testEmailSent,
+    3: hasSavedDraft,
     4: false,
   };
 
@@ -437,6 +437,11 @@ export default function CampaignWizard({
                     <DetailRow label="Mottagare" value={`${recipientPreview.valid || 0} giltiga`} />
                     <DetailRow label="Doman" value={selectedProfile?.domain || "Ingen vald"} />
                   </div>
+                  {!testEmailSent ? (
+                    <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.06] p-4 text-sm text-cyan-100">
+                      Du kan ga vidare till sista steget nar utkastet ar sparat. Själva kampanjstarten kraver fortfarande att ett testmail har skickats.
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
