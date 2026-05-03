@@ -18,6 +18,7 @@ export default function CampaignWizard({
   testEmailSent,
   testEmailLoading,
   campaignStarting,
+  campaignStarted,
   aiLoadingMode,
   aiError,
   recipientPreview,
@@ -495,13 +496,18 @@ export default function CampaignWizard({
                   <p className="mt-2 text-sm leading-6 text-slate-400">
                     Kampanjen startar i bakgrunden och skickas enligt den ko och batchlogik som redan finns i backend.
                   </p>
+                  {campaignStarted ? (
+                    <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+                      Kampanjen ar startad. Mailen borjar nu ga ut till mottagarna i bakgrunden.
+                    </div>
+                  ) : null}
                   <button
                     type="button"
                     onClick={onStartCampaign}
-                    disabled={!canLaunch || campaignStarting}
+                    disabled={!canLaunch || campaignStarting || campaignStarted}
                     className="mt-6 w-full rounded-2xl bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-400 px-5 py-4 text-sm font-semibold text-slate-950 shadow-[0_18px_48px_rgba(45,212,191,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {campaignStarting ? "Startar kampanj..." : "Starta kampanj"}
+                    {campaignStarting ? "Startar kampanj..." : campaignStarted ? "Kampanj startad" : "Starta kampanj"}
                   </button>
                 </div>
               </div>

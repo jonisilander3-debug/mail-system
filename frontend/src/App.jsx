@@ -102,6 +102,7 @@ function App() {
   const [testEmailLoading, setTestEmailLoading] = useState(false);
   const [testEmailSent, setTestEmailSent] = useState(false);
   const [campaignStarting, setCampaignStarting] = useState(false);
+  const [campaignStarted, setCampaignStarted] = useState(false);
   const [aiLoadingMode, setAiLoadingMode] = useState("");
   const [aiError, setAiError] = useState("");
   const [recipientPreview, setRecipientPreview] = useState(createEmptyRecipientPreview);
@@ -164,6 +165,7 @@ function App() {
       setTestEmailSent(false);
       setTestEmailLoading(false);
       setCampaignStarting(false);
+      setCampaignStarted(false);
       setAiError("");
       setAiLoadingMode("");
       throw new Error(data.error || "Authentication required.");
@@ -303,6 +305,7 @@ function App() {
       setTestEmailSent(false);
       setTestEmailLoading(false);
       setCampaignStarting(false);
+      setCampaignStarted(false);
       setAiError("");
       setAiLoadingMode("");
     }
@@ -511,6 +514,7 @@ function App() {
       setTestEmailSent(false);
       setTestEmailLoading(false);
       setCampaignStarting(false);
+      setCampaignStarted(false);
       setAiError("");
       setAiLoadingMode("");
     }
@@ -576,6 +580,7 @@ function App() {
       });
       setSavedCampaignId(null);
       setTestEmailSent(false);
+      setCampaignStarted(false);
       setBanner({
         type: "success",
         message: `Parsed ${file.name} successfully. ${data.valid || 0} valid recipients are ready for review.`,
@@ -608,6 +613,7 @@ function App() {
     setAiError("");
     setSavedCampaignId(null);
     setTestEmailSent(false);
+    setCampaignStarted(false);
   }
 
   async function handleSaveCampaign() {
@@ -651,6 +657,7 @@ function App() {
 
       setSavedCampaignId(data.campaign?.id || null);
       setTestEmailSent(false);
+      setCampaignStarted(false);
       setBanner({
         type: "success",
         message: `Campaign draft saved successfully${data.campaign?.id ? ` as #${data.campaign.id}` : ""}.`,
@@ -695,6 +702,7 @@ function App() {
       }));
       setSavedCampaignId(null);
       setTestEmailSent(false);
+      setCampaignStarted(false);
       setBanner({
         type: "success",
         message: "AI-förslaget har uppdaterat ämnesrad, text och förhandsvisning.",
@@ -766,6 +774,7 @@ function App() {
         method: "POST",
       });
 
+      setCampaignStarted(true);
       setBanner({
         type: "success",
         message: "Kampanjen har startats och lagts i ko for utskick.",
@@ -1046,6 +1055,7 @@ function App() {
               testEmailSent={testEmailSent}
               testEmailLoading={testEmailLoading}
               campaignStarting={campaignStarting}
+              campaignStarted={campaignStarted}
               aiLoadingMode={aiLoadingMode}
               aiError={aiError}
               recipientPreview={recipientPreview}
