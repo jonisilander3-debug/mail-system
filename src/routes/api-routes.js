@@ -1,10 +1,10 @@
 const express = require("express");
 const multer = require("multer");
-const bcrypt = require("bcryptjs");
+const rateLimit = require("express-rate-limit");
 const validator = require("validator");
+const env = require("../config/env");
 const prisma = require("../lib/prisma");
-const { requireAuth } = require("../middleware/auth");
-const { parseRecipientCsv } = require("../utils/csv");
+const { parseRecipientCsv, parseRecipientFile } = require("../utils/csv");
 const { normalizeEmail } = require("../utils/unsubscribe");
 const { getBoss } = require("../lib/boss");
 const {
@@ -13,13 +13,23 @@ const {
   updateCampaignStatus,
   QUEUE_NAME,
 } = require("../services/campaign-service");
+const { generateEmailDraft } = require("../services/ai-service");
 const {
   listSenderProfiles,
+  listSenderProfilesByIds,
   createSenderProfile,
   updateSenderProfile,
   deleteSenderProfile,
   serializeSenderProfile,
 } = require("../services/sender-profile-service");
+const { serializeAdminUser, verifyAdminCredentials } = require("../services/auth-service");
+const {
+  listAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  listAllowedSenderProfileIdsForUser,
+  serializeAdminUserWithAccess,
+} = require("../services/admin-user-service");
 
 function requireJsonAuth(req, res, next) {
   if (!req.session.user) {
@@ -31,6 +41,14 @@ function requireJsonAuth(req, res, next) {
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: env.isProduction ? 10 : 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: "Too many login attempts. Try again later." },
+});
 
 function serializeCampaign(campaign) {
   return {
@@ -61,26 +79,65 @@ function serializeCampaign(campaign) {
   };
 }
 
-router.post("/auth/login", async (req, res) => {
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function toHtmlFromRawMessage(rawMessage) {
+  return `<p>${escapeHtml(rawMessage).replace(/\r?\n/g, "<br>")}</p>`;
+}
+
+async function getAccessibleSenderProfiles(req, scope = "allowed") {
+  if (scope === "all" || Number(req.session?.user?.id) === 0) {
+    return listSenderProfiles();
+  }
+
+  const allowedIds = await listAllowedSenderProfileIdsForUser(req.session?.user?.id);
+  return listSenderProfilesByIds(allowedIds);
+}
+
+async function getAccessibleSenderProfileIds(req) {
+  const allowedProfiles = await getAccessibleSenderProfiles(req);
+  return allowedProfiles.map((profile) => profile.id);
+}
+
+router.get("/auth/me", (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: "Authentication required." });
+  }
+
+  return res.json({ user: serializeAdminUser(req.session.user) });
+});
+
+router.post("/auth/login", loginLimiter, async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
-  const user = await prisma.adminUser.findUnique({ where: { email } });
+  const user = await verifyAdminCredentials(email, password);
 
   if (!user || !user.isActive) {
     return res.status(401).json({ error: "Invalid login credentials." });
   }
 
-  const isValid = await bcrypt.compare(password, user.passwordHash);
-  if (!isValid) {
-    return res.status(401).json({ error: "Invalid login credentials." });
-  }
-
-  req.session.user = { id: user.id, email: user.email };
+  req.session.user = serializeAdminUser(user);
   return res.json({ user: req.session.user });
 });
 
+router.post("/auth/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.json({ ok: true });
+  });
+});
+
 router.get("/campaigns", requireJsonAuth, async (req, res) => {
+  const allowedProfileIds = await getAccessibleSenderProfileIds(req);
   const campaigns = await prisma.campaign.findMany({
+    where: Number(req.session?.user?.id) === 0 ? undefined : { senderProfileId: { in: allowedProfileIds } },
     include: { senderProfile: true },
     orderBy: { createdAt: "desc" },
   });
@@ -89,31 +146,75 @@ router.get("/campaigns", requireJsonAuth, async (req, res) => {
 
 router.post("/campaigns", requireJsonAuth, async (req, res) => {
   const senderProfileId = Number(req.body.senderProfileId);
+  const allowedProfileIds = await getAccessibleSenderProfileIds(req);
+  if (Number(req.session?.user?.id) !== 0 && !allowedProfileIds.includes(senderProfileId)) {
+    return res.status(403).json({ error: "You do not have access to that sender domain." });
+  }
   const senderProfile = await prisma.senderProfile.findUnique({
     where: { id: senderProfileId },
   });
-  const name = String(req.body.name || "").trim();
+  const name = String(req.body.campaignName || req.body.name || "").trim();
   const subject = String(req.body.subject || "").trim();
-  const htmlBody = String(req.body.htmlBody || "").trim();
-  const textBody = String(req.body.textBody || "").trim();
+  const rawMessage = String(req.body.rawMessage || "").trim();
+  const htmlBody = String(req.body.htmlBody || "").trim() || toHtmlFromRawMessage(rawMessage);
+  const textBody = String(req.body.textBody || "").trim() || rawMessage;
+  const rawRecipients = Array.isArray(req.body.recipients) ? req.body.recipients : [];
+  const normalizedRecipients = [];
+  const recipientSeen = new Set();
 
-  if (!senderProfile || !name || !subject || !htmlBody || !textBody) {
-    return res.status(400).json({ error: "Missing campaign fields or sender profile." });
+  for (const recipient of rawRecipients) {
+    const email = normalizeEmail(recipient.email);
+    const personName = String(recipient.name || "").trim();
+
+    if (!email || !validator.isEmail(email) || recipientSeen.has(email)) {
+      continue;
+    }
+
+    recipientSeen.add(email);
+    normalizedRecipients.push({
+      email,
+      name: personName || null,
+    });
   }
 
-  const campaign = await prisma.campaign.create({
-    data: {
-      senderProfileId: senderProfile.id,
-      name,
-      fromName: senderProfile.fromName,
-      fromEmail: senderProfile.fromEmail,
-      subject,
-      htmlBody,
-      textBody,
-      includeUnsubscribe: Boolean(req.body.includeUnsubscribe),
-      status: "draft",
-    },
-    include: { senderProfile: true },
+  if (!senderProfile || !name || !subject || !rawMessage || normalizedRecipients.length === 0) {
+    return res.status(400).json({ error: "Sender profile, campaign name, subject, message, and at least one valid recipient are required." });
+  }
+
+  const campaign = await prisma.$transaction(async (tx) => {
+    const createdCampaign = await tx.campaign.create({
+      data: {
+        senderProfileId: senderProfile.id,
+        name,
+        fromName: senderProfile.fromName,
+        fromEmail: senderProfile.fromEmail,
+        subject,
+        htmlBody,
+        textBody,
+        includeUnsubscribe: Boolean(req.body.includeUnsubscribe),
+        status: "draft",
+        totalRecipients: normalizedRecipients.length,
+        validRecipients: normalizedRecipients.length,
+        invalidRecipients: 0,
+        duplicateCount: 0,
+        unsubscribedCount: 0,
+      },
+    });
+
+    await tx.recipient.createMany({
+      data: normalizedRecipients.map((recipient) => ({
+        campaignId: createdCampaign.id,
+        email: recipient.email,
+        name: recipient.name,
+        status: "pending",
+      })),
+      skipDuplicates: true,
+    });
+
+    return tx.campaign.findUnique({
+      where: { id: createdCampaign.id },
+      include: { senderProfile: true },
+    });
   });
 
   return res.status(201).json({ campaign: serializeCampaign(campaign) });
@@ -158,6 +259,59 @@ router.post("/campaigns/:id/resume", requireJsonAuth, async (req, res) => {
   const boss = await getBoss();
   await boss.send(QUEUE_NAME, { campaignId });
   return res.json({ ok: true });
+});
+
+router.post("/ai/generate-email", requireJsonAuth, async (req, res) => {
+  const mode = String(req.body.mode || "professional").trim();
+  const userText = String(req.body.userText || "").trim();
+  const subject = String(req.body.subject || "").trim();
+  const senderDomain = String(req.body.senderDomain || "").trim();
+  const language = String(req.body.language || "sv").trim();
+
+  if (!userText) {
+    return res.status(400).json({ error: "Add some campaign text before asking the AI assistant for help." });
+  }
+
+  try {
+    const result = await generateEmailDraft({
+      mode,
+      userText,
+      subject,
+      senderDomain,
+      language,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    if (error.code === "missing_openai_key") {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.status(500).json({ error: error.message || "AI email generation failed." });
+  }
+});
+
+router.post("/recipients/preview", requireJsonAuth, upload.single("file"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Upload a CSV, XLSX, or XLS file." });
+  }
+
+  try {
+    const preview = parseRecipientFile(req.file);
+    return res.json({
+      total: preview.total,
+      valid: preview.valid,
+      invalid: preview.invalid,
+      duplicates: preview.duplicates,
+      validRecipients: preview.validRecipients,
+      rowsPreview: preview.rowsPreview,
+      invalidRows: preview.invalidRows,
+      duplicateRows: preview.duplicateRows,
+      detectedColumns: preview.detectedColumns,
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || "Could not parse recipients file." });
+  }
 });
 
 router.post("/upload", requireJsonAuth, upload.single("file"), async (req, res) => {
@@ -217,8 +371,66 @@ router.post("/test-email", requireJsonAuth, async (req, res) => {
   }
 });
 
-router.get("/settings/domains", async (req, res) => {
-  const domains = await listSenderProfiles();
+router.get("/recipients", requireJsonAuth, async (req, res) => {
+  const requestedSenderProfileId = Number(req.query.senderProfileId || 0);
+  const allowedProfileIds = await getAccessibleSenderProfileIds(req);
+  const senderProfileFilter =
+    Number(req.session?.user?.id) === 0
+      ? (requestedSenderProfileId ? [requestedSenderProfileId] : null)
+      : requestedSenderProfileId
+        ? allowedProfileIds.includes(requestedSenderProfileId)
+          ? [requestedSenderProfileId]
+          : []
+        : allowedProfileIds;
+
+  const recipients = await prisma.recipient.findMany({
+    where: senderProfileFilter === null
+      ? undefined
+      : {
+          campaign: {
+            senderProfileId: {
+              in: senderProfileFilter,
+            },
+          },
+        },
+    include: {
+      campaign: {
+        include: {
+          senderProfile: true,
+        },
+      },
+    },
+    orderBy: [{ email: "asc" }, { createdAt: "desc" }],
+    take: 1000,
+  });
+
+  const deduped = [];
+  const seen = new Set();
+  for (const recipient of recipients) {
+    const key = recipient.email;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push({
+      email: recipient.email,
+      name: recipient.name,
+      status: recipient.status,
+      sentAt: recipient.sentAt,
+      campaignName: recipient.campaign.name,
+      campaignId: recipient.campaignId,
+      senderProfileId: recipient.campaign.senderProfileId,
+      domain: recipient.campaign.senderProfile?.domain || "",
+      fromEmail: recipient.campaign.senderProfile?.fromEmail || "",
+    });
+  }
+
+  return res.json({ recipients: deduped });
+});
+
+router.get("/settings/domains", requireJsonAuth, async (req, res) => {
+  const scope = String(req.query.scope || "allowed").trim().toLowerCase();
+  const domains = await getAccessibleSenderProfiles(req, scope);
   return res.json({ domains: domains.map(serializeSenderProfile) });
 });
 
@@ -232,7 +444,7 @@ router.post("/settings/domains", requireJsonAuth, async (req, res) => {
   const status = String(req.body.status || "active").trim();
   const isDefault = Boolean(req.body.isDefault);
 
-  if (!name || !domain || !fromName || !validator.isEmail(fromEmail) || !postmarkToken) {
+  if (!name || !domain || !fromName || !validator.isEmail(fromEmail)) {
     return res.status(400).json({ error: "Missing sender profile fields." });
   }
 
@@ -300,6 +512,65 @@ router.delete("/settings/domains/:id", requireJsonAuth, async (req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     return res.status(400).json({ error: error.message });
+  }
+});
+
+router.get("/settings/users", requireJsonAuth, async (req, res) => {
+  const users = await listAdminUsers();
+  return res.json({ users: users.map(serializeAdminUserWithAccess) });
+});
+
+router.post("/settings/users", requireJsonAuth, async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  const senderProfileIds = Array.isArray(req.body.senderProfileIds)
+    ? req.body.senderProfileIds.map((value) => Number(value)).filter(Number.isFinite)
+    : [];
+
+  if (!validator.isEmail(email) || password.length < 8) {
+    return res.status(400).json({ error: "Enter a valid email and a password with at least 8 characters." });
+  }
+
+  try {
+    const user = await createAdminUser(email, password, senderProfileIds);
+    return res.status(201).json({ user: serializeAdminUserWithAccess(user) });
+  } catch (error) {
+    return res.status(400).json({ error: "Could not create user. The email may already exist." });
+  }
+});
+
+router.put("/settings/users/:id", requireJsonAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  const senderProfileIds = Array.isArray(req.body.senderProfileIds)
+    ? req.body.senderProfileIds.map((value) => Number(value)).filter(Number.isFinite)
+    : [];
+  const isActive = Boolean(req.body.isActive);
+
+  if (!validator.isEmail(email)) {
+    return res.status(400).json({ error: "Enter a valid email address." });
+  }
+
+  if (password && password.length < 8) {
+    return res.status(400).json({ error: "New password must be at least 8 characters." });
+  }
+
+  try {
+    const user = await updateAdminUser(id, {
+      email,
+      password,
+      isActive,
+      senderProfileIds,
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    return res.json({ user: serializeAdminUserWithAccess(user) });
+  } catch (error) {
+    return res.status(400).json({ error: "Could not update user." });
   }
 });
 

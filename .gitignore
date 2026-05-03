@@ -7,4 +7,6 @@ frontend/dist
 npm-debug.log*
 server.stdout.log
 server.stderr.log
+*.stdout.log
+*.stderr.log
 .pgpass.tmp

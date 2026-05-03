@@ -23,12 +23,32 @@ function createApp() {
   const frontendDistPath = path.join(__dirname, "..", "frontend", "dist");
   const frontendIndexPath = path.join(frontendDistPath, "index.html");
   const hasFrontendBuild = fs.existsSync(frontendIndexPath);
+  const appOrigin = (() => {
+    try {
+      return new URL(env.appBaseUrl).origin;
+    } catch (error) {
+      return null;
+    }
+  })();
+  const allowedOrigins = new Set([
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    ...(appOrigin ? [appOrigin] : []),
+  ]);
+
+  app.set("trust proxy", 1);
 
   app.set("view engine", "ejs");
   app.set("views", path.join(__dirname, "views"));
 
   app.use(cors({
-    origin: ["http://localhost:5173"],
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }));
   app.use("/public", express.static(path.join(__dirname, "..", "public")));
@@ -49,6 +69,7 @@ function createApp() {
       maxAge: 1000 * 60 * 60 * 8,
       sameSite: "lax",
       httpOnly: true,
+      secure: env.isProduction,
     },
   }));
 

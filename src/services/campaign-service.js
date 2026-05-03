@@ -11,6 +11,7 @@ const {
 } = require("../utils/template");
 
 const QUEUE_NAME = "send-campaign-batch";
+const MISSING_POSTMARK_TOKEN_ERROR = "Postmark API key saknas för vald domän. Lägg till den under Domäner & API.";
 
 async function queueCampaignBatch(campaignId, delaySeconds = 0) {
   const boss = await getBoss();
@@ -64,7 +65,7 @@ async function sendTestEmail(campaignId, testEmail) {
   }
 
   if (!campaign.senderProfile?.postmarkToken) {
-    throw new Error("The selected sender profile is missing a Postmark server token.");
+    throw new Error(MISSING_POSTMARK_TOKEN_ERROR);
   }
 
   const client = new postmark.ServerClient(campaign.senderProfile.postmarkToken);
@@ -85,7 +86,7 @@ async function sendTestEmail(campaignId, testEmail) {
       replaceTokens(campaign.textBody, { email: testEmail, name: "Test Recipient" }, unsubscribeUrl),
       unsubscribeUrl,
     ),
-    MessageStream: campaign.senderProfile.messageStream,
+    MessageStream: campaign.senderProfile.messageStream || "broadcast",
   });
 
   await prisma.campaign.update({
@@ -119,6 +120,7 @@ async function updateCampaignStatus(campaignId, status) {
 async function startCampaign(campaignId) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
+    include: { senderProfile: true },
   });
 
   if (!campaign) {
@@ -131,6 +133,10 @@ async function startCampaign(campaignId) {
 
   if (campaign.validRecipients < 1) {
     throw new Error("Upload at least one valid recipient before starting.");
+  }
+
+  if (!campaign.senderProfile?.postmarkToken) {
+    throw new Error(MISSING_POSTMARK_TOKEN_ERROR);
   }
 
   await updateCampaignStatus(campaignId, "sending");
@@ -152,7 +158,7 @@ async function processCampaignBatch(campaignId) {
 
   if (!campaign.senderProfile?.postmarkToken) {
     await updateCampaignStatus(campaignId, "failed");
-    throw new Error("The selected sender profile is missing a Postmark server token.");
+    throw new Error(MISSING_POSTMARK_TOKEN_ERROR);
   }
 
   const recipients = await prisma.recipient.findMany({
@@ -210,7 +216,7 @@ async function processCampaignBatch(campaignId) {
         replaceTokens(campaign.textBody, recipient, unsubscribeUrl),
         unsubscribeUrl,
       ),
-      MessageStream: campaign.senderProfile.messageStream,
+      MessageStream: campaign.senderProfile.messageStream || "broadcast",
     });
     indexMap.push(recipient);
   }

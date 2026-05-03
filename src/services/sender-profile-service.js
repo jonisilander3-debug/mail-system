@@ -6,6 +6,23 @@ async function listSenderProfiles() {
   });
 }
 
+async function listSenderProfilesByIds(ids) {
+  if (!Array.isArray(ids)) {
+    return listSenderProfiles();
+  }
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  return prisma.senderProfile.findMany({
+    where: {
+      id: { in: ids },
+    },
+    orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+  });
+}
+
 async function getDefaultSenderProfile() {
   return prisma.senderProfile.findFirst({
     where: { isDefault: true },
@@ -239,6 +256,7 @@ async function deleteSenderProfile(id) {
 
 module.exports = {
   listSenderProfiles,
+  listSenderProfilesByIds,
   getDefaultSenderProfile,
   ensureDefaultSenderProfile,
   createSenderProfile,

@@ -1,8 +1,7 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
-const prisma = require("../lib/prisma");
 const { pushFlash } = require("../utils/flash");
+const { serializeAdminUser, verifyAdminCredentials } = require("../services/auth-service");
 
 const router = express.Router();
 
@@ -25,22 +24,13 @@ router.post("/login", rateLimit({
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
 
-  const user = await prisma.adminUser.findUnique({ where: { email } });
+  const user = await verifyAdminCredentials(email, password);
   if (!user || !user.isActive) {
     pushFlash(req, "error", "Invalid login credentials.");
     return res.redirect("/login");
   }
 
-  const isValid = await bcrypt.compare(password, user.passwordHash);
-  if (!isValid) {
-    pushFlash(req, "error", "Invalid login credentials.");
-    return res.redirect("/login");
-  }
-
-  req.session.user = {
-    id: user.id,
-    email: user.email,
-  };
+  req.session.user = serializeAdminUser(user);
 
   pushFlash(req, "success", "Signed in successfully.");
   return res.redirect("/dashboard");

@@ -25,12 +25,13 @@ enum RecipientStatus {
 }
 
 model AdminUser {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  Int                           @id @default(autoincrement())
+  email               String                        @unique
+  passwordHash        String
+  isActive            Boolean                       @default(true)
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  senderProfileAccess AdminUserSenderProfileAccess[]
 }
 
 model AppSetting {
@@ -41,21 +42,43 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+model Session {
+  sid    String   @id @db.VarChar(255)
+  sess   Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "IDX_session_expire")
+  @@map("session")
+}
+
 model SenderProfile {
-  id             Int        @id @default(autoincrement())
-  name           String
-  domain         String     @default("")
-  fromName       String
-  fromEmail      String
-  postmarkToken  String     @map("serverToken")
-  messageStream  String     @default("broadcast")
-  status         String     @default("active")
-  isDefault      Boolean    @default(false)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  campaigns      Campaign[]
+  id                Int                           @id @default(autoincrement())
+  name              String
+  domain            String                        @default("")
+  fromName          String
+  fromEmail         String
+  postmarkToken     String                        @map("serverToken")
+  messageStream     String                        @default("broadcast")
+  status            String                        @default("active")
+  isDefault         Boolean                       @default(false)
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+  campaigns         Campaign[]
+  adminUserAccesses AdminUserSenderProfileAccess[]
 
   @@unique([domain, fromEmail, messageStream])
+}
+
+model AdminUserSenderProfileAccess {
+  id              Int           @id @default(autoincrement())
+  adminUserId     Int
+  senderProfileId Int
+  createdAt       DateTime      @default(now())
+  adminUser       AdminUser     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  senderProfile   SenderProfile @relation(fields: [senderProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([adminUserId, senderProfileId])
+  @@index([senderProfileId])
 }
 
 model Campaign {

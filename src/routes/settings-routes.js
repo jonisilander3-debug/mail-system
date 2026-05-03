@@ -44,8 +44,8 @@ router.post("/settings/senders", requireAuth, async (req, res) => {
   const isDefault = req.body.isDefault === "on";
   const status = String(req.body.status || "active").trim();
 
-  if (!name || !fromName || !domain || !postmarkToken || !validator.isEmail(fromEmail)) {
-    pushFlash(req, "error", "Enter a sender name, domain, from name, valid from email, and Postmark token.");
+  if (!name || !fromName || !domain || !validator.isEmail(fromEmail)) {
+    pushFlash(req, "error", "Enter a sender name, domain, from name, and valid from email.");
     return res.redirect("/settings");
   }
 
